@@ -18,6 +18,8 @@ of an evening while yelling at people about zoning reform.
 
 * It renders a TOC navigator as a sidebar.
 
+* It has color/display themes because I am a frustrated and untalented graphic designer and couldn't resist spending 30 minutes having Claude and GPT 5.5 argue back and forth with me about typography.
+
 * Bookmarks, across all files, the first 5 of which are hotkeyed `CMD-[1-5]`, and a transient in-memory `CMD-0` placeholder. Every program must evolve until it manages bookmarks.
 
 * It may do other things I've forgotten about. 
