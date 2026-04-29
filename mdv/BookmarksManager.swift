@@ -123,6 +123,23 @@ final class BookmarksManager: ObservableObject {
         renormalizeSortOrders()
     }
 
+    func moveBookmarkUp(id: Int64) {
+        guard let from = bookmarks.firstIndex(where: { $0.id == id }), from > 0 else { return }
+        moveBookmark(id: id, toIndex: from - 1)
+    }
+
+    func moveBookmarkDown(id: Int64) {
+        guard let from = bookmarks.firstIndex(where: { $0.id == id }), from < bookmarks.count - 1 else { return }
+        moveBookmark(id: id, toIndex: from + 1)
+    }
+
+    func moveBookmarkToStart(id: Int64) {
+        guard let from = bookmarks.firstIndex(where: { $0.id == id }), from > 0 else { return }
+        let item = bookmarks.remove(at: from)
+        bookmarks.insert(item, at: 0)
+        renormalizeSortOrders()
+    }
+
     /// 1-based slot number (1…5) if this bookmark is in a hotkey slot, else nil.
     func slotIndex(for bookmarkID: Int64) -> Int? {
         guard let i = bookmarks.firstIndex(where: { $0.id == bookmarkID }) else { return nil }

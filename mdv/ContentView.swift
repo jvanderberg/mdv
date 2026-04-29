@@ -984,7 +984,7 @@ struct ContentView: View {
                         .padding(.vertical, 2)
                 }
 
-                ForEach(bookmarks.bookmarks) { bookmark in
+                ForEach(Array(bookmarks.bookmarks.enumerated()), id: \.element.id) { (idx, bookmark) in
                     bookmarkRow(bookmark)
                         .contextMenu {
                             Button("Go to Bookmark") { loadBookmark(bookmark) }
@@ -993,6 +993,15 @@ struct ContentView: View {
                                 NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: bookmark.path)])
                             }
                             .disabled(!bookmark.fileExists)
+                            Divider()
+                            Button("Move Up") { bookmarks.moveBookmarkUp(id: bookmark.id) }
+                                .disabled(idx == 0)
+                            Button("Move Down") { bookmarks.moveBookmarkDown(id: bookmark.id) }
+                                .disabled(idx >= bookmarks.bookmarks.count - 1)
+                            Button("Move to Top") { bookmarks.moveBookmarkToStart(id: bookmark.id) }
+                                .disabled(idx == 0)
+                            Button("Move to Bottom") { bookmarks.moveBookmarkToEnd(id: bookmark.id) }
+                                .disabled(idx >= bookmarks.bookmarks.count - 1)
                             Divider()
                             Button(role: .destructive) {
                                 bookmarks.remove(id: bookmark.id)
