@@ -724,7 +724,7 @@ struct ContentView: View {
                                         // read-only viewer has no insertion caret.
                                         if hoveredBlock == idx && highlightColor(forBlock: idx) == .clear {
                                             Rectangle()
-                                                .fill(Color.accentColor)
+                                                .fill(themes.current.accent)
                                                 .frame(width: 2)
                                                 .padding(.vertical, 1)
                                                 .transition(.opacity)
@@ -1373,7 +1373,7 @@ struct ContentView: View {
     private func blockBackground(forBlock idx: Int) -> Color {
         let find = highlightColor(forBlock: idx)
         if find != .clear { return find }
-        if hoveredBlock == idx { return Color.accentColor.opacity(0.07) }
+        if hoveredBlock == idx { return themes.current.accent.opacity(0.07) }
         return .clear
     }
 

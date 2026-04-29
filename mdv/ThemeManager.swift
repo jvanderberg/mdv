@@ -35,38 +35,64 @@ struct MDVTheme: Identifiable, Hashable {
     /// Font family for body text, headings, blockquote, etc. Code blocks
     /// always use the system monospace regardless of this setting.
     var bodyFontFamily: FontProperties.Family = .system()
-    /// Default `Theme.gitHub` uses 16pt body. Reading-tuned themes can bump
-    /// this up — Alegreya's x-height is generous so 17pt feels equivalent
-    /// to system 16pt while easing eye fatigue on long texts.
+    /// Default body size. SF Pro at 16pt is the macOS body baseline; reading
+    /// themes that bundle a custom face often bump this (Sevilla → 17 to match
+    /// Alegreya's x-height; Charcoal → 16.5 for half-pt SF Pro crispness).
     var baseFontSize: CGFloat = 16
-    /// Extra leading between lines, in em-relative units. MarkdownUI's gitHub
-    /// theme uses 0.25em — that's tight for serif body. Long-form serif reading
-    /// wants 0.4–0.5em on top of the natural ~1.2 line height.
-    var paragraphLineSpacingEm: CGFloat = 0.25
-    /// Horizontal padding around the rendered article. Theme-controlled so a
-    /// reading theme can set a measure (line length) closer to the optimum
-    /// 60–75 characters.
-    var articleHorizontalPadding: CGFloat = 34
-    /// Optional max width for the article column. When set, the LazyVStack is
-    /// constrained to this width and centered, giving a robust measure that
-    /// doesn't widen with the window. Reading themes use this; default is
-    /// nil so non-reading themes keep filling the available width.
-    var articleMaxWidth: CGFloat? = nil
+    /// Extra leading between lines, in em-relative units. 0.30 puts total
+    /// line height at ≈1.5×, which sits in the typography-designer comfort
+    /// zone for both prose and technical reading. Reading themes push to
+    /// 0.45–0.55 for serif body; operational themes can drop to 0.25.
+    var paragraphLineSpacingEm: CGFloat = 0.30
+    /// Horizontal padding around the rendered article when not max-width
+    /// constrained, or when the window is narrower than `articleMaxWidth`.
+    var articleHorizontalPadding: CGFloat = 40
+    /// Max width for the article column; the LazyVStack centers when the
+    /// window is wider. Default 860pt ≈ 95–100ch at 16pt SF Pro — a
+    /// reasonable cap that keeps lines from running edge-to-edge on a
+    /// 27" display. Reading themes go narrower (Sevilla → 620);
+    /// utility/technical themes go wider (Charcoal → 920).
+    var articleMaxWidth: CGFloat? = 860
 
     // MARK: Heading scale
 
-    /// Heading sizes in em units (relative to body). Defaults match
-    /// `Theme.gitHub`'s scale (2 / 1.5 / 1.25). Reading themes can tone these
-    /// down — heavy serif headings at the GitHub scale dominate the page and
-    /// pull it toward "designed document" rather than "reader".
-    var h1SizeEm: CGFloat = 2.0
-    var h2SizeEm: CGFloat = 1.5
-    var h3SizeEm: CGFloat = 1.25
+    /// Heading sizes in em units (relative to body). The MarkdownUI gitHub
+    /// scale (2.0 / 1.5 / 1.25) reads as a "designed document"; we tone it
+    /// down by default and let weight + spacing carry hierarchy. Themes
+    /// can override either way.
+    var h1SizeEm: CGFloat = 1.75
+    var h2SizeEm: CGFloat = 1.4
+    var h3SizeEm: CGFloat = 1.15
 
-    /// Whether to render a divider rule beneath H1/H2 (the GitHub-style
-    /// horizontal line). Quieter reading themes turn the H2 rule off.
+    /// H1 keeps a (per-theme-divider-color) rule for orientation. H2 rules
+    /// stack visually with the H1 rule and produce "designed document" mass;
+    /// off by default. Themes that genuinely want a rule under every
+    /// section break can flip it on.
     var showH1Rule: Bool = true
-    var showH2Rule: Bool = true
+    var showH2Rule: Bool = false
+
+    // MARK: Per-element spacing
+
+    /// Vertical margins around each block, in points. Defaults match
+    /// `Theme.gitHub`'s 24/16. Themes that want a tighter operational
+    /// rhythm (Charcoal) or more generous reading rhythm (Sevilla) can
+    /// override piece-by-piece.
+    var paragraphBottomSpacing: CGFloat = 16
+    var h1TopSpacing: CGFloat = 24
+    var h1BottomSpacing: CGFloat = 16
+    var h2TopSpacing: CGFloat = 24
+    var h2BottomSpacing: CGFloat = 16
+    var h3TopSpacing: CGFloat = 24
+    var h3BottomSpacing: CGFloat = 16
+
+    // MARK: Interactive accent
+
+    /// Color for in-viewer interactive affordances that aren't part of the
+    /// markdown rendering itself (bookmark-hover stripe, current-block
+    /// highlight, etc.). Defaults to the system accent so untouched themes
+    /// look native; theme authors can swap in something that doesn't clash
+    /// with the palette (Sevilla → terracotta, Charcoal → muted GitHub blue).
+    var accent: Color = .accentColor
 }
 
 extension MDVTheme {
@@ -93,6 +119,13 @@ extension MDVTheme {
         let h3 = self.h3SizeEm
         let h1Rule = self.showH1Rule
         let h2Rule = self.showH2Rule
+        let pBottom = self.paragraphBottomSpacing
+        let h1Top = self.h1TopSpacing
+        let h1Bottom = self.h1BottomSpacing
+        let h2Top = self.h2TopSpacing
+        let h2Bottom = self.h2BottomSpacing
+        let h3Top = self.h3TopSpacing
+        let h3Bottom = self.h3BottomSpacing
 
         return Theme()
             .text {
@@ -103,7 +136,7 @@ extension MDVTheme {
             }
             .code {
                 FontFamilyVariant(.monospaced)
-                FontSize(.em(0.85))
+                FontSize(.em(0.90))                     // up from 0.85 — inline code at body × 0.85 reads small next to a serif body and at our usual sans body sizes
                 BackgroundColor(sbg)
             }
             .strong {
@@ -118,7 +151,7 @@ extension MDVTheme {
                     configuration.label
                         .relativePadding(.bottom, length: .em(0.3))
                         .relativeLineSpacing(.em(0.125))
-                        .markdownMargin(top: 24, bottom: 16)
+                        .markdownMargin(top: h1Top, bottom: h1Bottom)
                         .markdownTextStyle {
                             FontWeight(.semibold)
                             FontSize(.em(h1))
@@ -132,7 +165,7 @@ extension MDVTheme {
                     configuration.label
                         .relativePadding(.bottom, length: .em(0.3))
                         .relativeLineSpacing(.em(0.125))
-                        .markdownMargin(top: 24, bottom: 16)
+                        .markdownMargin(top: h2Top, bottom: h2Bottom)
                         .markdownTextStyle {
                             FontWeight(.semibold)
                             FontSize(.em(h2))
@@ -144,7 +177,7 @@ extension MDVTheme {
             .heading3 { configuration in
                 configuration.label
                     .relativeLineSpacing(.em(0.125))
-                    .markdownMargin(top: 24, bottom: 16)
+                    .markdownMargin(top: h3Top, bottom: h3Bottom)
                     .markdownTextStyle {
                         FontWeight(.semibold)
                         FontSize(.em(h3))
@@ -184,7 +217,7 @@ extension MDVTheme {
                 configuration.label
                     .fixedSize(horizontal: false, vertical: true)
                     .relativeLineSpacing(.em(lineEm))
-                    .markdownMargin(top: 0, bottom: 16)
+                    .markdownMargin(top: 0, bottom: pBottom)
             }
             .blockquote { configuration in
                 HStack(spacing: 0) {
@@ -215,6 +248,27 @@ extension MDVTheme {
             .listItem { configuration in
                 configuration.label
                     .markdownMargin(top: .em(0.25))
+            }
+            .taskListMarker { configuration in
+                // Quieter than MarkdownUI's gitHub default (Color.checkbox /
+                // Color.checkboxBackground), but checked vs unchecked has to
+                // remain legible at a glance. Checked: filled square at body
+                // color, opacity .75. Unchecked: empty square at tertiary
+                // color, opacity .40. The opacity + color delta does the
+                // distinguishing work, not the SF Symbol shape alone.
+                if configuration.isCompleted {
+                    Image(systemName: "checkmark.square.fill")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(txt.opacity(0.75))
+                        .baselineOffset(1)
+                        .relativeFrame(minWidth: .em(1.5), alignment: .trailing)
+                } else {
+                    Image(systemName: "square")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(ttxt.opacity(0.40))
+                        .baselineOffset(1)
+                        .relativeFrame(minWidth: .em(1.5), alignment: .trailing)
+                }
             }
             .table { configuration in
                 configuration.label
@@ -261,31 +315,56 @@ extension MDVTheme {
         tertiaryText: Color(rgba: 0x6B7280FF),
         heading: Color(rgba: 0x000000FF),
         link: Color(rgba: 0x1D6FE0FF),
-        strong: Color(rgba: 0x000000FF),
+        strong: Color(rgba: 0x0A0A0AFF),              // tier 1 (= body); SF Pro semibold pops on white without needing the lift
         border: Color(rgba: 0xE5E7EBFF),
         divider: Color(rgba: 0xD1D5DBFF),
         blockquoteBar: Color(rgba: 0xD1D5DBFF),
         sidebarTint: Color(rgba: 0xFFFFFFFF),
-        sidebarTintOpacity: 0.0
+        sidebarTintOpacity: 0.0,
+        accent: Color(rgba: 0x1D6FE0FF)               // = link — High Contrast leans into system-blue territory
     )
 
+    /// "GitHub README, dark, all business" — compact, neutral, high density.
+    /// Tuned for technical reading (READMEs, internal docs), not long-form
+    /// prose. See TYPOGRAPHY.md → Charcoal section for the rationale.
+    /// "GitHub README, dark, all business" — compact, neutral, high density.
+    /// Tuned for technical reading (READMEs, internal docs), not long-form
+    /// prose. See TYPOGRAPHY.md → Charcoal section for the rationale.
     static let charcoal = MDVTheme(
         id: "charcoal",
         name: "Charcoal",
         isDark: true,
-        background: Color(rgba: 0x2B2E33FF),
-        secondaryBackground: Color(rgba: 0x35393FFF),
-        text: Color(rgba: 0xE6E7EAFF),
-        secondaryText: Color(rgba: 0xB0B3BAFF),
-        tertiaryText: Color(rgba: 0x8A8E96FF),
-        heading: Color(rgba: 0xFFFFFFFF),
-        link: Color(rgba: 0x6FB1FFFF),
-        strong: Color(rgba: 0xFFFFFFFF),
-        border: Color(rgba: 0x4A4E55FF),
-        divider: Color(rgba: 0x444850FF),
-        blockquoteBar: Color(rgba: 0x4A4E55FF),
-        sidebarTint: Color(rgba: 0x2B2E33FF),
-        sidebarTintOpacity: 0.18
+        background: Color(rgba: 0x1B1B21FF),          // cooler, slightly darker than v1 (#1E1F25); per user spec rgb(0.105, 0.106, 0.128)
+        secondaryBackground: Color(rgba: 0x25262CFF), // pulled closer to bg — inline-code pills no longer read like selected text. Was #2E303B.
+        text: Color(rgba: 0xC7D1DBFF),                // muted cool-grey body — leaves headroom above
+        secondaryText: Color(rgba: 0x8C99A8FF),
+        tertiaryText: Color(rgba: 0x6E7785FF),
+        heading: Color(rgba: 0xF5F7FCFF),             // not pure white — reserves max brightness
+        link: Color(rgba: 0x5CA3FAFF),                // GitHub-style blue; less saturated than #6FB1FF
+        strong: Color(rgba: 0xE8EDF5FF),              // tier 2 (body < strong < heading). Slightly dimmer than v1 #EBF0F7; the previous value sat too close to heading and made every `**bold**` mid-paragraph feel shouty.
+        border: Color(rgba: 0x3B4252FF),
+        divider: Color(rgba: 0x3B4252FF),
+        blockquoteBar: Color(rgba: 0x3B4252FF),       // neutral grey rule, not accent-blue
+        sidebarTint: Color(rgba: 0x1B1B21FF),
+        sidebarTintOpacity: 0.18,
+        baseFontSize: 16.5,                           // half-pt nudge for crisper SF Pro at this column width
+        paragraphLineSpacingEm: 0.25,                 // ≈1.46× — operational, not literary
+        articleHorizontalPadding: 48,                 // was 40 — per user spec; gives the page a real left/right margin
+        articleMaxWidth: 920,                         // wider measure than reading themes — technical docs scan better wider
+        h1SizeEm: 1.82,                               // = 30pt at 16.5 body
+        h2SizeEm: 1.45,                               // = 24pt — per user spec
+        h3SizeEm: 1.15,                               // = 19pt
+        showH1Rule: true,                             // faded rule under H1 for orientation
+        showH2Rule: false,                            // drop H2 rule
+        // Operational rhythm — tighter spacing for technical docs.
+        paragraphBottomSpacing: 11,
+        h1TopSpacing: 0,
+        h1BottomSpacing: 12,                          // was 14 — per user spec
+        h2TopSpacing: 22,                             // was 26 — per user spec
+        h2BottomSpacing: 13,                          // was 10 — per user spec
+        h3TopSpacing: 18,
+        h3BottomSpacing: 8,
+        accent: Color(rgba: 0x2E7AEBFF)               // muted GitHub blue — calmer than system .accentColor for in-viewer affordances
     )
 
     /// Ethan Schoonover's Solarized Light palette.
@@ -301,12 +380,13 @@ extension MDVTheme {
         tertiaryText: Color(rgba: 0x93A1A1FF), // base1
         heading: Color(rgba: 0x073642FF),     // base02 — strong
         link: Color(rgba: 0x268BD2FF),        // blue
-        strong: Color(rgba: 0x073642FF),
+        strong: Color(rgba: 0x586E75FF),      // tier 1 (= body); the olive-grey body is muted enough that semibold weight reads cleanly without lifting toward the dark-base02 heading
         border: Color(rgba: 0xDED7C2FF),
         divider: Color(rgba: 0xDED7C2FF),
         blockquoteBar: Color(rgba: 0xCB4B16FF), // orange — accents the bar
         sidebarTint: Color(rgba: 0xFDF6E3FF),
-        sidebarTintOpacity: 0.55
+        sidebarTintOpacity: 0.55,
+        accent: Color(rgba: 0xCB4B16FF)        // Solarized orange — the warm accent is more interesting than another blue
     )
 
     /// Long-form reading theme using bundled Alegreya (a Spanish-tradition
@@ -342,7 +422,16 @@ extension MDVTheme {
         h2SizeEm: 1.25,                               // down from 1.5
         h3SizeEm: 1.1,                                // down from 1.25
         showH1Rule: true,                             // single faded rule under H1 for orientation
-        showH2Rule: false                             // remove H2 rule — too heavy in long-form
+        showH2Rule: false,                            // remove H2 rule — too heavy in long-form
+        // Reading rhythm — slightly more generous spacing than Charcoal's operational rhythm.
+        paragraphBottomSpacing: 14,
+        h1TopSpacing: 28,
+        h1BottomSpacing: 18,
+        h2TopSpacing: 32,
+        h2BottomSpacing: 12,
+        h3TopSpacing: 22,
+        h3BottomSpacing: 8,
+        accent: Color(rgba: 0xB0623EFF)               // terracotta — the warm accent for in-viewer affordances (bookmark-hover stripe etc.)
     )
 
     static let solarizedDark = MDVTheme(
@@ -356,12 +445,13 @@ extension MDVTheme {
         tertiaryText: Color(rgba: 0x657B83FF), // base00
         heading: Color(rgba: 0xEEE8D5FF),     // base2
         link: Color(rgba: 0x268BD2FF),
-        strong: Color(rgba: 0xFDF6E3FF),
+        strong: Color(rgba: 0xC5CDC2FF),      // tier 2 (between body base1 and heading base2); was #FDF6E3 (= base3), too close to heading
         border: Color(rgba: 0x0E4753FF),
         divider: Color(rgba: 0x0E4753FF),
         blockquoteBar: Color(rgba: 0xB58900FF), // yellow accent
         sidebarTint: Color(rgba: 0x002B36FF),
-        sidebarTintOpacity: 0.32
+        sidebarTintOpacity: 0.32,
+        accent: Color(rgba: 0xB58900FF)        // Solarized yellow — matches the blockquoteBar; warm against the cool base03 bg
     )
 
     /// Amber-on-black CRT vibe: pure black background, hi-vis amber for headings,
@@ -377,12 +467,13 @@ extension MDVTheme {
         tertiaryText: Color(rgba: 0x7A7A7AFF),
         heading: Color(rgba: 0xFFA500FF), // bright amber
         link: Color(rgba: 0xFFD43BFF),    // yellow
-        strong: Color(rgba: 0xFFFFFFFF),
+        strong: Color(rgba: 0xF5F5F5FF),  // tier 1 (= body); the amber heading is doing all the visual work, body bold doesn't need to compete
         border: Color(rgba: 0x2A2A2AFF),
         divider: Color(rgba: 0x2A2A2AFF),
         blockquoteBar: Color(rgba: 0xFFA500FF),
         sidebarTint: Color(rgba: 0x000000FF),
-        sidebarTintOpacity: 0.30
+        sidebarTintOpacity: 0.30,
+        accent: Color(rgba: 0xFFA500FF)   // amber — leans into the CRT vibe
     )
 
     /// Deep navy, mint heading, cream link — a calm low-light palette.
@@ -397,12 +488,13 @@ extension MDVTheme {
         tertiaryText: Color(rgba: 0x5B6168FF),
         heading: Color(rgba: 0x6EBA7FFF), // mint green
         link: Color(rgba: 0xFFD580FF),    // cream/yellow
-        strong: Color(rgba: 0xD8DEE9FF),
+        strong: Color(rgba: 0xD8DEE9FF),  // tier 2 (between body cool-grey and the mint heading); leaves emphasis hue-neutral instead of borrowing mint
         border: Color(rgba: 0x1E252DFF),
         divider: Color(rgba: 0x1E252DFF),
         blockquoteBar: Color(rgba: 0x6EBA7FFF),
         sidebarTint: Color(rgba: 0x0A0F14FF),
-        sidebarTintOpacity: 0.32
+        sidebarTintOpacity: 0.32,
+        accent: Color(rgba: 0xFFD580FF)   // cream — the warm side of the palette, matches the link
     )
 
     static let all: [MDVTheme] = [
