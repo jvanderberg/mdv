@@ -18,6 +18,8 @@ of an evening while yelling at people about zoning reform.
 
 * It renders a TOC navigator as a sidebar.
 
+* Bookmarks, across all files, the first 5 of which are hotkeyed `CMD-[1-5]`, and a transient in-memory `CMD-0` placeholder. Every program must evolve until it manages bookmarks.
+
 * It may do other things I've forgotten about. 
 
 ## Installing
