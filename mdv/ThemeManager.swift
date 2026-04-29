@@ -47,6 +47,26 @@ struct MDVTheme: Identifiable, Hashable {
     /// reading theme can set a measure (line length) closer to the optimum
     /// 60–75 characters.
     var articleHorizontalPadding: CGFloat = 34
+    /// Optional max width for the article column. When set, the LazyVStack is
+    /// constrained to this width and centered, giving a robust measure that
+    /// doesn't widen with the window. Reading themes use this; default is
+    /// nil so non-reading themes keep filling the available width.
+    var articleMaxWidth: CGFloat? = nil
+
+    // MARK: Heading scale
+
+    /// Heading sizes in em units (relative to body). Defaults match
+    /// `Theme.gitHub`'s scale (2 / 1.5 / 1.25). Reading themes can tone these
+    /// down — heavy serif headings at the GitHub scale dominate the page and
+    /// pull it toward "designed document" rather than "reader".
+    var h1SizeEm: CGFloat = 2.0
+    var h2SizeEm: CGFloat = 1.5
+    var h3SizeEm: CGFloat = 1.25
+
+    /// Whether to render a divider rule beneath H1/H2 (the GitHub-style
+    /// horizontal line). Quieter reading themes turn the H2 rule off.
+    var showH1Rule: Bool = true
+    var showH2Rule: Bool = true
 }
 
 extension MDVTheme {
@@ -68,6 +88,11 @@ extension MDVTheme {
         let family = self.bodyFontFamily
         let bodySize = self.baseFontSize
         let lineEm = self.paragraphLineSpacingEm
+        let h1 = self.h1SizeEm
+        let h2 = self.h2SizeEm
+        let h3 = self.h3SizeEm
+        let h1Rule = self.showH1Rule
+        let h2Rule = self.showH2Rule
 
         return Theme()
             .text {
@@ -96,10 +121,10 @@ extension MDVTheme {
                         .markdownMargin(top: 24, bottom: 16)
                         .markdownTextStyle {
                             FontWeight(.semibold)
-                            FontSize(.em(2))
+                            FontSize(.em(h1))
                             ForegroundColor(head)
                         }
-                    Divider().overlay(div)
+                    if h1Rule { Divider().overlay(div) }
                 }
             }
             .heading2 { configuration in
@@ -110,10 +135,10 @@ extension MDVTheme {
                         .markdownMargin(top: 24, bottom: 16)
                         .markdownTextStyle {
                             FontWeight(.semibold)
-                            FontSize(.em(1.5))
+                            FontSize(.em(h2))
                             ForegroundColor(head)
                         }
-                    Divider().overlay(div)
+                    if h2Rule { Divider().overlay(div) }
                 }
             }
             .heading3 { configuration in
@@ -122,7 +147,7 @@ extension MDVTheme {
                     .markdownMargin(top: 24, bottom: 16)
                     .markdownTextStyle {
                         FontWeight(.semibold)
-                        FontSize(.em(1.25))
+                        FontSize(.em(h3))
                         ForegroundColor(head)
                     }
             }
@@ -286,31 +311,38 @@ extension MDVTheme {
 
     /// Long-form reading theme using bundled Alegreya (a Spanish-tradition
     /// serif designed by Juan Pablo del Peral, optimized for sustained text).
-    /// Warm parchment background — pure white tires the eyes — with deep
-    /// cordovan-brown text and azulejo-blue links. Body is bumped to 17pt
-    /// with generous leading; the article column stays narrower than the
-    /// other themes for a comfortable measure (60–75ch).
+    /// Warm parchment background — pure white tires the eyes — with soft
+    /// warm-brown text and azulejo-blue links. Tuned for sustained reading:
+    /// 17pt body, 1.55× leading, ~620pt fixed-width column (≈70ch at this
+    /// size), reduced heading scale, only H1 carries a (faded) rule.
+    /// See TYPOGRAPHY.md for the rationale behind each number.
     static let sevilla = MDVTheme(
         id: "sevilla",
         name: "Sevilla",
         isDark: false,
-        background: Color(rgba: 0xF8F1DEFF),         // warm parchment cream
-        secondaryBackground: Color(rgba: 0xEFE6CCFF), // deeper parchment for code blocks
-        text: Color(rgba: 0x2D241BFF),               // warm dark brown
-        secondaryText: Color(rgba: 0x5C4F3FFF),
-        tertiaryText: Color(rgba: 0x8C7E69FF),
-        heading: Color(rgba: 0x3D2014FF),            // cordovan / Spanish leather
-        link: Color(rgba: 0x2C5F8DFF),               // muted azulejo blue
-        strong: Color(rgba: 0x2D241BFF),
-        border: Color(rgba: 0xDCCFA6FF),
-        divider: Color(rgba: 0xDCCFA6FF),
-        blockquoteBar: Color(rgba: 0xB0623EFF),      // terracotta
-        sidebarTint: Color(rgba: 0xF8F1DEFF),
+        background: Color(rgba: 0xF4EFE3FF),          // desaturated warm cream — less yellow than parchment
+        secondaryBackground: Color(rgba: 0xEAE5D6FF), // for code blocks / table stripes
+        text: Color(rgba: 0x3B3026FF),                // soft warm brown — lighter than near-black; Alegreya can get heavy
+        secondaryText: Color(rgba: 0x6A5C4DFF),
+        tertiaryText: Color(rgba: 0x968874FF),
+        heading: Color(rgba: 0x2D2118FF),             // slightly darker than body; weight + size carry the rest
+        link: Color(rgba: 0x2C5F8DFF),                // muted azulejo blue
+        strong: Color(rgba: 0x2D2118FF),
+        border: Color(rgba: 0xE6DEC2FF),
+        divider: Color(rgba: 0xE6DEC2FF),             // quieter rule for H1
+        blockquoteBar: Color(rgba: 0xB0623EFF),       // terracotta
+        sidebarTint: Color(rgba: 0xF4EFE3FF),
         sidebarTintOpacity: 0.55,
         bodyFontFamily: .custom("Alegreya"),
         baseFontSize: 17,
-        paragraphLineSpacingEm: 0.45,                // generous leading for serif comfort
-        articleHorizontalPadding: 56                 // narrower measure → ~65ch at body 17pt
+        paragraphLineSpacingEm: 0.55,                 // total ≈ 1.6× — Alegreya needs air
+        articleHorizontalPadding: 30,                 // small breathing room when window is narrow
+        articleMaxWidth: 620,                         // ≈75–78ch at 17pt Alegreya — upper end of the comfort zone
+        h1SizeEm: 1.7,                                // down from 2.0 — let spacing carry hierarchy
+        h2SizeEm: 1.25,                               // down from 1.5
+        h3SizeEm: 1.1,                                // down from 1.25
+        showH1Rule: true,                             // single faded rule under H1 for orientation
+        showH2Rule: false                             // remove H2 rule — too heavy in long-form
     )
 
     static let solarizedDark = MDVTheme(

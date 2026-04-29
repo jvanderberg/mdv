@@ -748,7 +748,9 @@ struct ContentView: View {
                         .textSelection(.enabled)
                         .padding(.horizontal, themes.current.articleHorizontalPadding)
                         .padding(.vertical, 28)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: themes.current.articleMaxWidth ?? .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity,
+                               alignment: themes.current.articleMaxWidth == nil ? .leading : .center)
                     }
                     .onChange(of: currentMatchIndex) { _ in
                         scrollToCurrentMatch(proxy: proxy)
