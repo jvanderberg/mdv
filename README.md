@@ -28,6 +28,8 @@ of an evening while yelling at people about zoning reform.
 
 Type `make`.
 
+Or, if you don't feel like compiling: grab the [latest CI build](releases/tag/latest), `tar -xzf mdv-release.tar.gz`, drag `mdv.app` to `/Applications/`. CI rebuilds it on every push to `main`, so the link is stable.
+
 ## Here Are My Prompts, Roughly
 
 > Install this macOS UI skill I found.
