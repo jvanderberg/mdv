@@ -1,0 +1,121 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel any older run for the same ref so the queue doesn't pile up
+# while you're force-pushing fixups to a PR.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (${{ matrix.config }})
+    runs-on: macos-15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [debug, release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcode-select -p
+          xcodebuild -version
+          swift --version
+
+      # SwiftPM checkout cache. The .build/checkouts/ directory holds the
+      # cloned dependencies (swift-markdown-ui, SwiftTreeSitter, swift-cmark,
+      # NetworkImage, tree-sitter); caching it shaves the second build down
+      # to compile-only.
+      - name: Cache SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ matrix.config }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-${{ matrix.config }}-
+            ${{ runner.os }}-spm-
+
+      - name: Build ${{ matrix.config }}
+        run: ./build.sh ${{ matrix.config }}
+
+      # Sanity-check that the assembled bundle has everything the app
+      # needs at runtime — Info.plist, the executable, fonts, tree-
+      # sitter highlight queries, AppIcon — and that codesign didn't
+      # error out.
+      - name: Verify .app bundle
+        run: |
+          set -euo pipefail
+          APP="build/mdv.app"
+          test -d "$APP" || { echo "✗ no $APP"; exit 1; }
+          test -x "$APP/Contents/MacOS/mdv" || { echo "✗ executable missing"; exit 1; }
+          test -f "$APP/Contents/Info.plist" || { echo "✗ Info.plist missing"; exit 1; }
+          test -f "$APP/Contents/Resources/AppIcon.icns" || { echo "✗ AppIcon missing"; exit 1; }
+
+          ls "$APP/Contents/Resources/" | grep -q "Alegreya-Regular.otf" \
+            || { echo "✗ bundled fonts missing"; exit 1; }
+          ls "$APP/Contents/Resources/" | grep -q "rust-highlights.scm" \
+            || { echo "✗ tree-sitter grammars missing"; exit 1; }
+
+          file "$APP/Contents/MacOS/mdv"
+          codesign -dv "$APP" 2>&1
+          echo "✓ bundle looks healthy"
+
+      # Tar so symlinks / permissions / .app dir structure survive upload.
+      - name: Package artifact
+        if: matrix.config == 'release'
+        run: tar -czf mdv-release.tar.gz -C build mdv.app
+
+      - name: Upload release artifact
+        if: matrix.config == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdv-release-${{ github.sha }}
+          path: mdv-release.tar.gz
+          retention-days: 14
+
+  # Republishes the release-config build as the "latest" prerelease on every
+  # main-push, giving consumers a stable URL:
+  #   https://github.com/<owner>/<repo>/releases/download/latest/mdv-release.tar.gz
+  # Skipped on PRs (would noisy the releases page and PRs can't write to the
+  # repo's release stream anyway). Runs on Linux because we just need to
+  # download the artifact and call the GitHub API — no macOS toolchain
+  # required for that.
+  publish-latest:
+    name: publish "latest" prerelease
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mdv-release-${{ github.sha }}
+          path: .
+
+      - name: Update "latest" prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest main build
+          prerelease: true
+          files: mdv-release.tar.gz
+          body: |
+            Auto-built from `main` @ ${{ github.sha }} on ${{ github.event.head_commit.timestamp }}.
+
+            ```sh
+            curl -L -o mdv.tar.gz https://github.com/${{ github.repository }}/releases/download/latest/mdv-release.tar.gz
+            tar -xzf mdv.tar.gz && mv mdv.app /Applications/
+            ```
