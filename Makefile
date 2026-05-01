@@ -40,13 +40,15 @@ RELEASE_ZIP   := $(DIST_DIR)/$(APP_NAME)-$(VERSION)-macos.zip
 TEAM_ID       ?= KK7E9G89GW
 CERT_NAME     ?= Developer ID Application: Thomas Ptacek ($(TEAM_ID))
 
-# Notarization credentials — required for `make notarize`. Either set
-# APPLE_ID + NOTARY_PASS (an app-specific password generated at
-# appleid.apple.com) on the command line, or stash them once via
-# `xcrun notarytool store-credentials` and use `notarytool ... --keychain-profile`
-# instead (not wired up here — easy to add when the team grows past one dev).
-APPLE_ID      ?=
-NOTARY_PASS   ?=
+# Notarization credentials. Stored once in the keychain via
+#   xcrun notarytool store-credentials mdv-notary \
+#     --apple-id you@example.com --team-id $(TEAM_ID) \
+#     --password <app-specific-password from appleid.apple.com>
+# and then referenced by profile name. Override NOTARY_PROFILE on a
+# machine that uses a different name. (We deliberately don't fall back
+# to inline APPLE_ID/NOTARY_PASS — the profile path is the only one we
+# document, so the keychain stays the single source of truth.)
+NOTARY_PROFILE ?= mdv-notary
 
 # Release notes file passed to `gh release create`. If unset, the
 # github-release target falls back to `--generate-notes`, which derives
@@ -79,7 +81,7 @@ help:
 	@echo "  dist              Build → sign → notarize → staple → zip → checksum"
 	@echo "  github-release    Upload \$$(RELEASE_ZIP) + .sha256 to a GitHub release"
 	@echo "  sign              codesign with hardened runtime + timestamp"
-	@echo "  notarize          Submit notary zip to Apple (needs APPLE_ID/NOTARY_PASS)"
+	@echo "  notarize          Submit notary zip to Apple (uses keychain profile $(NOTARY_PROFILE))"
 	@echo "  staple            xcrun stapler staple"
 	@echo "  verify-release    spctl + codesign sanity-check the bundle"
 	@echo ""
@@ -243,14 +245,14 @@ $(ICON_DST): $(ICON_SRC)
 # ticket is inside it. Otherwise users without internet on first launch
 # fail Gatekeeper because the ticket isn't bundled.
 #
-# Typical invocation once everything's wired:
+# Typical invocation once a vX.Y.Z tag is in place and the notary
+# credentials profile has been stored in the keychain:
 #
-#   make dist \
-#     APPLE_ID="you@example.com" \
-#     NOTARY_PASS="xxxx-xxxx-xxxx-xxxx"
+#   make dist
 #
-# CERT_NAME / TEAM_ID default to the project's signing identity (see vars
-# at top); APPLE_ID + NOTARY_PASS have no defaults because they're secrets.
+# CERT_NAME / TEAM_ID / NOTARY_PROFILE default to the project's signing
+# identity and the `mdv-notary` keychain profile; override on the command
+# line if you ever rotate or run this under a different developer account.
 # ---------------------------------------------------------------------------
 
 dist: check-version clean release sign zip-notary notarize staple zip-release checksum verify-release
@@ -297,16 +299,17 @@ zip-notary: sign
 	@echo "✓ wrote $(NOTARY_ZIP)"
 
 notarize: zip-notary
-	@if [ -z "$(APPLE_ID)" ] || [ -z "$(TEAM_ID)" ] || [ -z "$(NOTARY_PASS)" ]; then \
-	  echo "✗ APPLE_ID, TEAM_ID, and NOTARY_PASS required"; \
-	  echo "  generate an app-specific password at https://appleid.apple.com → Sign-In and Security → App-Specific Passwords"; \
+	@if [ -z "$(NOTARY_PROFILE)" ]; then \
+	  echo "✗ NOTARY_PROFILE required"; \
+	  echo "  store credentials once with:"; \
+	  echo "    xcrun notarytool store-credentials $(NOTARY_PROFILE) \\"; \
+	  echo "      --apple-id <you@example.com> --team-id $(TEAM_ID) \\"; \
+	  echo "      --password <app-specific password from appleid.apple.com>"; \
 	  exit 1; \
 	fi
-	@echo "→ submitting $(NOTARY_ZIP) to notary service (this can take a few minutes)"
+	@echo "→ submitting $(NOTARY_ZIP) to notary service via profile '$(NOTARY_PROFILE)' (this can take a few minutes)"
 	xcrun notarytool submit "$(NOTARY_ZIP)" \
-	  --apple-id "$(APPLE_ID)" \
-	  --team-id "$(TEAM_ID)" \
-	  --password "$(NOTARY_PASS)" \
+	  --keychain-profile "$(NOTARY_PROFILE)" \
 	  --wait
 
 staple: notarize
