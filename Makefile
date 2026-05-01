@@ -18,23 +18,72 @@ LSREGISTER   := /System/Library/Frameworks/CoreServices.framework/Versions/Curre
 MIN_MACOS    := 13
 MIN_SWIFT    := 5.9
 
-.PHONY: all deps build release run clean install install-cli uninstall register icon help
+# ---------------------------------------------------------------------------
+# Release variables
+# ---------------------------------------------------------------------------
+# `dist` enforces an exact tag (`vX.Y.Z`) — no shipping `0.1.0` from a commit
+# that's just *near* the v0.1.0 tag. Override `VERSION=...` on the command
+# line to test individual release targets without tagging first.
+APP_NAME      := mdv
+# `--match 'v[0-9]*'` filters out rolling tags like the CI's `latest` —
+# only proper `vX.Y.Z` tags become valid release versions.
+VERSION       ?= $(shell git describe --tags --exact-match --match 'v[0-9]*' 2>/dev/null | sed 's/^v//')
+DIST_DIR      := dist
+NOTARY_ZIP    := $(DIST_DIR)/$(APP_NAME)-$(VERSION)-notary.zip
+RELEASE_ZIP   := $(DIST_DIR)/$(APP_NAME)-$(VERSION)-macos.zip
+
+# Signing identity. Defaults to the project's known Developer ID; override
+# CERT_NAME / TEAM_ID on the command line if you ever rotate or run this
+# under a different developer account. `codesign -s` substring-matches the
+# CN, so passing just the team ID also works on a keychain that has only
+# one Developer ID Application cert.
+TEAM_ID       ?= KK7E9G89GW
+CERT_NAME     ?= Developer ID Application: Thomas Ptacek ($(TEAM_ID))
+
+# Notarization credentials — required for `make notarize`. Either set
+# APPLE_ID + NOTARY_PASS (an app-specific password generated at
+# appleid.apple.com) on the command line, or stash them once via
+# `xcrun notarytool store-credentials` and use `notarytool ... --keychain-profile`
+# instead (not wired up here — easy to add when the team grows past one dev).
+APPLE_ID      ?=
+NOTARY_PASS   ?=
+
+# Release notes file passed to `gh release create`. If unset, the
+# github-release target falls back to `--generate-notes`, which derives
+# notes from PRs since the previous tag — fine for a project this size,
+# replace with --notes-file CHANGELOG.md once we curate one.
+NOTES_FILE    ?=
+
+.PHONY: all deps build release run clean install install-cli uninstall register icon help \
+        check-version sign zip-notary notarize staple zip-release checksum verify-release \
+        dist github-release
 
 all: build
 
 help:
-	@echo "Targets:"
-	@echo "  make / build  Build $(CONFIG) into ./$(APP)  (default)"
-	@echo "  release       Build release into ./$(APP)"
-	@echo "  run           Build and launch mdv"
-	@echo "  clean         Remove ./build/ and ./.build/"
-	@echo "  install       Copy mdv.app to /Applications/, register it, symlink CLI"
-	@echo "  install-cli   Symlink $(CLI_SRC) → $(CLI_DST) (sudo)"
-	@echo "  uninstall     Remove /Applications/mdv.app and $(CLI_DST)"
-	@echo "  register      Refresh LaunchServices for ./$(APP)"
-	@echo "  icon          Regenerate $(ICON_DST) from $(ICON_SRC)"
-	@echo "  deps          Verify build prerequisites (run automatically before build)"
-	@echo "  help          Show this message"
+	@echo "Build:"
+	@echo "  make / build      Build $(CONFIG) into ./$(APP)  (default)"
+	@echo "  release           Build release into ./$(APP)"
+	@echo "  run               Build and launch mdv"
+	@echo "  clean             Remove ./build/ and ./.build/"
+	@echo "  icon              Regenerate $(ICON_DST) from $(ICON_SRC)"
+	@echo "  deps              Verify build prerequisites (run automatically before build)"
+	@echo ""
+	@echo "Local install:"
+	@echo "  install           Copy mdv.app to /Applications/, register it, symlink CLI"
+	@echo "  install-cli       Symlink $(CLI_SRC) → $(CLI_DST) (sudo)"
+	@echo "  uninstall         Remove /Applications/mdv.app and $(CLI_DST)"
+	@echo "  register          Refresh LaunchServices for ./$(APP)"
+	@echo ""
+	@echo "Release pipeline (require an exact 'vX.Y.Z' git tag):"
+	@echo "  dist              Build → sign → notarize → staple → zip → checksum"
+	@echo "  github-release    Upload \$$(RELEASE_ZIP) + .sha256 to a GitHub release"
+	@echo "  sign              codesign with hardened runtime + timestamp"
+	@echo "  notarize          Submit notary zip to Apple (needs APPLE_ID/NOTARY_PASS)"
+	@echo "  staple            xcrun stapler staple"
+	@echo "  verify-release    spctl + codesign sanity-check the bundle"
+	@echo ""
+	@echo "  help              Show this message"
 
 # ---------------------------------------------------------------------------
 # Prerequisite checks
@@ -184,3 +233,113 @@ $(ICON_DST): $(ICON_SRC)
 	 sips -z 1024 1024 $$SQ --out $$SET/icon_512x512@2x.png >/dev/null
 	@iconutil -c icns build_icon/AppIcon.iconset -o "$(ICON_DST)"
 	@echo "✓ regenerated $(ICON_DST) from $(ICON_SRC)"
+
+# ---------------------------------------------------------------------------
+# Release pipeline: sign → zip-for-notary → notarize → staple → zip-for-release → checksum
+#
+# The dance with two zips is on purpose. Apple's notary service operates on
+# a zip; stapling writes a ticket back into the .app bundle; the *zip we
+# distribute* needs to be a fresh zip taken AFTER stapling so the stapled
+# ticket is inside it. Otherwise users without internet on first launch
+# fail Gatekeeper because the ticket isn't bundled.
+#
+# Typical invocation once everything's wired:
+#
+#   make dist \
+#     APPLE_ID="you@example.com" \
+#     NOTARY_PASS="xxxx-xxxx-xxxx-xxxx"
+#
+# CERT_NAME / TEAM_ID default to the project's signing identity (see vars
+# at top); APPLE_ID + NOTARY_PASS have no defaults because they're secrets.
+# ---------------------------------------------------------------------------
+
+dist: check-version clean release sign zip-notary notarize staple zip-release checksum verify-release
+	@echo "✓ release artifact ready: $(RELEASE_ZIP)"
+	@echo "  next: make github-release   (or upload $(RELEASE_ZIP) manually)"
+
+check-version:
+	@if [ -z "$(VERSION)" ]; then \
+	  echo "✗ releases must be built from an exact git tag, e.g.  git tag v0.1.0 && make dist"; \
+	  echo "  (override with VERSION=... on the command line for one-off testing)"; \
+	  exit 1; \
+	fi
+	@echo "→ release version $(VERSION)"
+
+# `--options runtime` enables hardened runtime, which the notary service
+# requires. `--timestamp` embeds a secure timestamp from Apple's TSA so the
+# signature stays valid past the cert expiry. `--deep` walks bundled
+# frameworks; we don't currently embed any, but the flag is cheap insurance.
+sign: release
+	@if [ -z "$(CERT_NAME)" ]; then echo "✗ CERT_NAME required"; exit 1; fi
+	@# Preflight: the leaf cert needs Apple's "Developer ID Certification
+	@# Authority" intermediate available somewhere in the keychain search
+	@# path or codesign fails with the famously unhelpful
+	@# `errSecInternalComponent`. Download it from
+	@# https://www.apple.com/certificateauthority/ and double-click to install.
+	@security find-certificate -c "Developer ID Certification Authority" >/dev/null 2>&1 \
+	  || security find-certificate -c "Developer ID Certification Authority" /Library/Keychains/System.keychain >/dev/null 2>&1 \
+	  || { \
+	    echo "✗ Apple's 'Developer ID Certification Authority' intermediate cert is missing from your keychains."; \
+	    echo "  Without it, codesign can't build the chain to a trusted root."; \
+	    echo "  Fix: download the G2 intermediate from https://www.apple.com/certificateauthority/"; \
+	    echo "  and double-click the .cer to install it into your login keychain."; \
+	    exit 1; \
+	  }
+	@echo "→ signing $(APP) as $(CERT_NAME)"
+	codesign --force --deep --options runtime --timestamp \
+	  --sign "$(CERT_NAME)" "$(APP)"
+	codesign --verify --deep --strict --verbose=2 "$(APP)"
+
+zip-notary: sign
+	@mkdir -p "$(DIST_DIR)"
+	rm -f "$(NOTARY_ZIP)"
+	ditto -c -k --keepParent "$(APP)" "$(NOTARY_ZIP)"
+	@echo "✓ wrote $(NOTARY_ZIP)"
+
+notarize: zip-notary
+	@if [ -z "$(APPLE_ID)" ] || [ -z "$(TEAM_ID)" ] || [ -z "$(NOTARY_PASS)" ]; then \
+	  echo "✗ APPLE_ID, TEAM_ID, and NOTARY_PASS required"; \
+	  echo "  generate an app-specific password at https://appleid.apple.com → Sign-In and Security → App-Specific Passwords"; \
+	  exit 1; \
+	fi
+	@echo "→ submitting $(NOTARY_ZIP) to notary service (this can take a few minutes)"
+	xcrun notarytool submit "$(NOTARY_ZIP)" \
+	  --apple-id "$(APPLE_ID)" \
+	  --team-id "$(TEAM_ID)" \
+	  --password "$(NOTARY_PASS)" \
+	  --wait
+
+staple: notarize
+	xcrun stapler staple "$(APP)"
+	xcrun stapler validate "$(APP)"
+
+zip-release: staple
+	rm -f "$(RELEASE_ZIP)"
+	ditto -c -k --keepParent "$(APP)" "$(RELEASE_ZIP)"
+	@echo "✓ wrote $(RELEASE_ZIP)"
+
+checksum: zip-release
+	cd "$(DIST_DIR)" && shasum -a 256 "$$(basename $(RELEASE_ZIP))" > "$$(basename $(RELEASE_ZIP)).sha256"
+	@echo "✓ wrote $(RELEASE_ZIP).sha256"
+
+# Final sanity check: spctl confirms the stapled bundle passes Gatekeeper
+# without ever phoning Apple.
+verify-release: zip-release
+	spctl --assess --type execute --verbose "$(APP)"
+	codesign --verify --deep --strict --verbose=2 "$(APP)"
+
+# Upload the artifacts to a GitHub release. Doesn't depend on `dist` —
+# the artifacts must already exist (so you can re-run this if the upload
+# itself fails without rebuilding/notarizing). Pass NOTES_FILE=PATH to use
+# curated release notes; otherwise gh auto-generates from PRs.
+github-release:
+	@if ! command -v gh >/dev/null 2>&1; then echo "✗ gh CLI not installed (brew install gh)"; exit 1; fi
+	@if [ -z "$(VERSION)" ]; then echo "✗ VERSION required (tag or override)"; exit 1; fi
+	@if [ ! -f "$(RELEASE_ZIP)" ]; then echo "✗ $(RELEASE_ZIP) not found — run make dist first"; exit 1; fi
+	@if [ ! -f "$(RELEASE_ZIP).sha256" ]; then echo "✗ $(RELEASE_ZIP).sha256 not found — run make dist first"; exit 1; fi
+	gh release create "v$(VERSION)" \
+	  "$(RELEASE_ZIP)" \
+	  "$(RELEASE_ZIP).sha256" \
+	  --title "$(APP_NAME) $(VERSION)" \
+	  $(if $(NOTES_FILE),--notes-file "$(NOTES_FILE)",--generate-notes)
+	@echo "✓ published v$(VERSION)"
