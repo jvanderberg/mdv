@@ -3,6 +3,15 @@ import MarkdownUI
 import AppKit
 import CoreServices
 
+/// One frame of browser-style back/forward state: which file, plus where
+/// we were scrolled to inside it. Same-doc fragment clicks push a snapshot
+/// with the same `entry` but a different `topBlockIndex`, so ⌘← can scroll
+/// back to where the user was before they jumped to the heading.
+struct NavSnapshot: Equatable {
+    let entry: HistoryEntry
+    let topBlockIndex: Int
+}
+
 struct ContentView: View {
     @EnvironmentObject var history: HistoryManager
     @EnvironmentObject var bookmarks: BookmarksManager
@@ -35,14 +44,36 @@ struct ContentView: View {
     /// fresh content into the viewer automatically.
     @State private var fileWatcher = FileWatcher()
 
-    /// Browser-style back stack populated when a link click navigates to
-    /// another md file. ⌘← pops it. Sidebar clicks / drag-drop / Open
-    /// dialog don't touch this — those are explicit jumps, not "history".
-    @State private var backStack: [HistoryEntry] = []
+    /// Browser-style back stack. Each entry pairs a HistoryEntry with the
+    /// top-visible block index at the moment we left, so ⌘← restores
+    /// both the file *and* the scroll position. Pushed by every
+    /// navigation that changes the current view: cross-doc link clicks,
+    /// sidebar selection, ⌘O, drag-drop, history search, bookmark jumps,
+    /// and same-doc fragment clicks. ⌘← pops it. The
+    /// `.onChange(of: selectedEntry)` handler in `body` covers cross-doc
+    /// pushes; same-doc fragment pushes happen inline in `handleLinkClick`
+    /// because `selectedEntry` doesn't change on a fragment-only click.
+    /// `goBack` / `goForward` suppress the centralized push via
+    /// `suppressBackStackPush` so stack walks don't push themselves back on.
+    @State private var backStack: [NavSnapshot] = []
     /// Forward stack — populated when the user goes back, so ⌘→ can
-    /// re-enter what they just left. Cleared whenever a fresh link click
-    /// branches the history.
-    @State private var forwardStack: [HistoryEntry] = []
+    /// re-enter what they just left. Cleared on any fresh navigation that
+    /// branches the history (i.e. anything that pushes onto backStack).
+    @State private var forwardStack: [NavSnapshot] = []
+    /// Last value of `selectedEntry` — `.onChange` reads this to know
+    /// what to push to `backStack`. macOS 13's single-arg onChange
+    /// doesn't surface the old value directly.
+    @State private var previousSelectedEntry: HistoryEntry?
+    /// Set true by `goBack` / `goForward` immediately before they mutate
+    /// `selectedEntry` so the resulting onChange tick skips the backStack
+    /// push. Cleared at the end of that tick.
+    @State private var suppressBackStackPush = false
+    /// Mirror of `topVisibleBlock` updated via `.onChange`. Used as the
+    /// "scroll snapshot we're leaving" when pushing onto `backStack`,
+    /// because the computed `topVisibleBlock` reflects whatever's visible
+    /// *now* — by the time we want to capture it on a navigation event,
+    /// `visibleBlocks` may have started churning.
+    @State private var currentTopBlock: Int = 0
     /// If a fragment-bearing link triggers a cross-document load, the
     /// fragment is stashed here and consumed once `rawMarkdown` updates
     /// (the headings only exist after the file is read).
@@ -205,6 +236,32 @@ struct ContentView: View {
         })
         .onChange(of: themes.current.id) { _ in
             for window in NSApp.windows { applyThemeToWindow(window) }
+        }
+        .onChange(of: selectedEntry) { _ in
+            // Cross-doc back-stack push. Skip if a stack walk
+            // (goBack/goForward) is in progress, if there's no previous
+            // entry (first load), or if the path didn't actually change
+            // (history.add creates a fresh entry on every visit — those
+            // re-visits shouldn't clutter the stack). `currentTopBlock`
+            // here still reflects the doc we're leaving because the new
+            // doc's blocks haven't fired their onAppear yet.
+            let leavingTop = currentTopBlock
+            defer {
+                suppressBackStackPush = false
+                previousSelectedEntry = selectedEntry
+                // New doc — visibleBlocks will repopulate from 0 upward
+                // as blocks appear; reset the mirror so we don't carry
+                // the leaving doc's value.
+                currentTopBlock = 0
+            }
+            guard !suppressBackStackPush,
+                  let prev = previousSelectedEntry,
+                  prev.path != selectedEntry?.path else { return }
+            backStack.append(NavSnapshot(entry: prev, topBlockIndex: leavingTop))
+            forwardStack.removeAll()
+        }
+        .onChange(of: topVisibleBlock) { newValue in
+            currentTopBlock = newValue
         }
     }
 
@@ -1605,6 +1662,9 @@ struct ContentView: View {
         }()
 
         return Button {
+            // Treat a TOC click like a same-doc fragment click: push a
+            // snapshot of where we were so ⌘← can scroll back.
+            pushSameDocSnapshot()
             tocSelectedBlock = heading.blockIndex
             tocScrollTrigger = heading.blockIndex
         } label: {
@@ -1735,9 +1795,13 @@ struct ContentView: View {
         let fragment = url.fragment
 
         // Same-document fragment (#section). Resolve to a heading and
-        // scroll there.
+        // scroll there. Push a snapshot of where we were so ⌘← can jump
+        // back to it — selectedEntry doesn't change on a same-doc
+        // fragment click, so the centralized onChange-based push won't
+        // fire here.
         if url.scheme == nil, let frag = fragment, !frag.isEmpty,
            url.path.isEmpty {
+            pushSameDocSnapshot()
             scrollToFragment(frag)
             return .handled
         }
@@ -1775,15 +1839,11 @@ struct ContentView: View {
         if resolved.isFileURL,
            mdExts.contains(resolved.pathExtension.lowercased()),
            FileManager.default.fileExists(atPath: resolved.path) {
-            // Push the page we're leaving onto the back stack so ⌘←
-            // returns to it. A fresh link click also resets the
-            // forward stack — same as a browser. Don't push when
-            // navigating to the same file (a fragment-only jump
-            // within the doc).
-            if let current = selectedEntry, current.path != resolved.path {
-                backStack.append(current)
-                forwardStack.removeAll()
-            }
+            // The back/forward stacks are managed centrally by the
+            // `.onChange(of: selectedEntry)` handler in `body`, so a
+            // link click that ends up calling `loadFile` will be pushed
+            // there. Same-path "fragment only" clicks don't push because
+            // the path comparison short-circuits.
             // Cross-document fragment: stash, scroll once the new
             // doc's blocks are computed. Same-document fragment falls
             // out as an immediate scroll because rawMarkdown won't
@@ -1813,14 +1873,45 @@ struct ContentView: View {
 
     private func goBack() {
         guard let prev = backStack.popLast() else { return }
-        if let current = selectedEntry { forwardStack.append(current) }
-        selectedEntry = prev
+        if let current = selectedEntry {
+            forwardStack.append(NavSnapshot(entry: current, topBlockIndex: currentTopBlock))
+        }
+        applySnapshot(prev)
     }
 
     private func goForward() {
         guard let next = forwardStack.popLast() else { return }
-        if let current = selectedEntry { backStack.append(current) }
-        selectedEntry = next
+        if let current = selectedEntry {
+            backStack.append(NavSnapshot(entry: current, topBlockIndex: currentTopBlock))
+        }
+        applySnapshot(next)
+    }
+
+    /// Push a snapshot of the current view onto `backStack` for a
+    /// within-document jump (TOC click, same-doc fragment link). Clears
+    /// the forward stack — a fresh jump branches the history. No-op when
+    /// nothing is loaded yet.
+    private func pushSameDocSnapshot() {
+        guard let current = selectedEntry else { return }
+        backStack.append(NavSnapshot(entry: current, topBlockIndex: currentTopBlock))
+        forwardStack.removeAll()
+    }
+
+    /// Restore a stack frame: switch the file (suppressing the centralized
+    /// back-stack push so the walk doesn't push itself back on) and scroll
+    /// to the captured block. Same-doc snapshots skip the file switch and
+    /// just scroll.
+    private func applySnapshot(_ snap: NavSnapshot) {
+        if snap.entry.path == selectedEntry?.path {
+            tocScrollTrigger = snap.topBlockIndex
+        } else {
+            suppressBackStackPush = true
+            selectedEntry = snap.entry
+            // The new doc's blocks aren't laid out synchronously;
+            // pendingAnchorBlock is consumed by the ScrollViewReader
+            // once the layout settles (~50ms — see its onChange handler).
+            pendingAnchorBlock = snap.topBlockIndex
+        }
     }
 
     /// Scrolls the markdown viewport to the heading whose GitHub-flavored
