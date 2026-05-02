@@ -662,27 +662,50 @@ extension MDVTheme {
         codePalette: .charcoalPalette                 // GitHub Dark — vivid token semantics against the cool grey-blue chrome
     )
 
-    /// Ethan Schoonover's Solarized Light palette.
-    /// base03→base3 background ramp, yellow heading, blue link, orange accent.
-    static let solarizedLight = MDVTheme(
-        id: "solarized-light",
-        name: "Solarized Light",
+    /// **Solarium Daylight** — Ethan Schoonover's canonical Solarized Light
+    /// palette wearing **Besley** (Owen Earl / Indestructible Type, OFL),
+    /// a slab-serif revival explicitly designed for sustained screen
+    /// reading. The Solarized base3 / base01 / base02 / blue / orange
+    /// values are unchanged from the original Solarized Light theme;
+    /// what's new is the typeface and a typography pass that gives the
+    /// slab serif room to breathe without going full long-form-reading
+    /// like Sevilla.
+    /// See TYPOGRAPHY.md → Solarium for each knob's rationale.
+    static let solariumDaylight = MDVTheme(
+        id: "solarium-daylight",
+        name: "Solarium Daylight",
         isDark: false,
-        background: Color(rgba: 0xFDF6E3FF),  // base3
+        background: Color(rgba: 0xFDF6E3FF),          // base3 (canonical)
         secondaryBackground: Color(rgba: 0xEEE8D5FF), // base2
-        text: Color(rgba: 0x586E75FF),        // base01
-        secondaryText: Color(rgba: 0x657B83FF), // base00
-        tertiaryText: Color(rgba: 0x93A1A1FF), // base1
-        heading: Color(rgba: 0x073642FF),     // base02 — strong
-        link: Color(rgba: 0x268BD2FF),        // blue
-        strong: Color(rgba: 0x586E75FF),      // tier 1 (= body); the olive-grey body is muted enough that semibold weight reads cleanly without lifting toward the dark-base02 heading
+        text: Color(rgba: 0x586E75FF),                // base01 — olive-grey body
+        secondaryText: Color(rgba: 0x657B83FF),       // base00
+        tertiaryText: Color(rgba: 0x93A1A1FF),        // base1
+        heading: Color(rgba: 0x073642FF),             // base02
+        link: Color(rgba: 0x268BD2FF),                // blue
+        strong: Color(rgba: 0x586E75FF),              // tier 1 (= body) — Besley SemiBold has visual heft the original SF Pro lacked; no color lift needed
         border: Color(rgba: 0xDED7C2FF),
         divider: Color(rgba: 0xDED7C2FF),
-        blockquoteBar: Color(rgba: 0xCB4B16FF), // orange — accents the bar
+        blockquoteBar: Color(rgba: 0xCB4B16FF),       // Solarized orange
         sidebarTint: Color(rgba: 0xFDF6E3FF),
         sidebarTintOpacity: 0.55,
-        accent: Color(rgba: 0xCB4B16FF),       // Solarized orange — the warm accent is more interesting than another blue
-        codePalette: .solarizedLightPalette    // canonical Schoonover accents — the palette this theme exists for
+        bodyFontFamily: .custom("Besley"),
+        // baseFontSize stays at the cross-theme default 16pt — Besley's
+        // x-height is generous enough that 16pt reads at the right "weight" for
+        // sustained reading without bumping like Sevilla had to (17pt to
+        // compensate for Alegreya's smaller x-height).
+        paragraphLineSpacingEm: 0.20,                 // ≈1.36× total — tight. Slab serifs have strong horizontal strokes that anchor each line visually, so they can take leading well below the cross-theme 0.30 default without feeling crowded. Tighter than Charcoal's operational 0.25; the goal is "dense article", not "long-form reading."
+        articleHorizontalPadding: 36,                 // slight pull-in from default 40 — gives the page presence without feeling cramped
+        articleMaxWidth: 720,                         // ≈78–82ch at 16pt Besley — between Sevilla's 620 (75ch, prose-comfort) and the 860pt default (95ch+, scannable). Slab serifs scan slightly wider than humanist serifs.
+        h1SizeEm: 1.55,                               // down from default 1.75 — Besley at heading sizes is visually dense already; the smaller scale reads as "article" not "magazine spread"
+        h2SizeEm: 1.28,                               // down from default 1.4 — same reasoning
+        h3SizeEm: 1.1,                                // down from default 1.15
+        // headingFontWeight + strongFontWeight stay at the cross-theme
+        // default `.semibold` — Besley SemiBold (weight 600, registered
+        // separately) is what we want for both. SwiftUI's font matcher resolves
+        // `.weight(.semibold)` against Besley's typographic-family table
+        // (name ID 16 = "Besley") and picks SemiBold cleanly.
+        accent: Color(rgba: 0xCB4B16FF),              // Solarized orange — matches blockquoteBar
+        codePalette: .solarizedLightPalette           // canonical Schoonover accents
     )
 
     /// Long-form reading theme using bundled Alegreya (a Spanish-tradition
@@ -731,25 +754,39 @@ extension MDVTheme {
         codePalette: .sevillaPalette                  // earth-tones — calm, lower-saturation, function color borrows the link's azulejo blue
     )
 
-    static let solarizedDark = MDVTheme(
-        id: "solarized-dark",
-        name: "Solarized Dark",
+    /// **Solarium Moonlight** — Solarized Dark wearing Besley. Same
+    /// typography as Solarium Daylight; only the palette flips. base03 bg,
+    /// base1 body, base2 heading; yellow accent + warm blockquote bar.
+    /// **Strong drops from tier 2 to tier 1** vs the old Solarized Dark
+    /// — Besley SemiBold has the heft to carry mid-paragraph emphasis on
+    /// the muted base1 body without needing the brightness lift SF Pro
+    /// semibold needed.
+    static let solariumMoonlight = MDVTheme(
+        id: "solarium-moonlight",
+        name: "Solarium Moonlight",
         isDark: true,
-        background: Color(rgba: 0x002B36FF),  // base03
+        background: Color(rgba: 0x002B36FF),          // base03
         secondaryBackground: Color(rgba: 0x073642FF), // base02
-        text: Color(rgba: 0x93A1A1FF),        // base1
-        secondaryText: Color(rgba: 0x839496FF), // base0
-        tertiaryText: Color(rgba: 0x657B83FF), // base00
-        heading: Color(rgba: 0xEEE8D5FF),     // base2
-        link: Color(rgba: 0x268BD2FF),
-        strong: Color(rgba: 0xC5CDC2FF),      // tier 2 (between body base1 and heading base2); was #FDF6E3 (= base3), too close to heading
+        text: Color(rgba: 0x93A1A1FF),                // base1
+        secondaryText: Color(rgba: 0x839496FF),       // base0
+        tertiaryText: Color(rgba: 0x657B83FF),        // base00
+        heading: Color(rgba: 0xEEE8D5FF),             // base2
+        link: Color(rgba: 0x268BD2FF),                // blue
+        strong: Color(rgba: 0x93A1A1FF),              // tier 1 (= body) — Besley SemiBold pops on its own; was #C5CDC2 (tier 2) for SF Pro
         border: Color(rgba: 0x0E4753FF),
         divider: Color(rgba: 0x0E4753FF),
-        blockquoteBar: Color(rgba: 0xB58900FF), // yellow accent
+        blockquoteBar: Color(rgba: 0xB58900FF),       // Solarized yellow
         sidebarTint: Color(rgba: 0x002B36FF),
         sidebarTintOpacity: 0.32,
-        accent: Color(rgba: 0xB58900FF),       // Solarized yellow — matches the blockquoteBar; warm against the cool base03 bg
-        codePalette: .solarizedDarkPalette     // same Solarized accents on the base03 dark base
+        bodyFontFamily: .custom("Besley"),
+        paragraphLineSpacingEm: 0.20,
+        articleHorizontalPadding: 36,
+        articleMaxWidth: 720,
+        h1SizeEm: 1.55,
+        h2SizeEm: 1.28,
+        h3SizeEm: 1.1,
+        accent: Color(rgba: 0xB58900FF),              // Solarized yellow
+        codePalette: .solarizedDarkPalette
     )
 
     /// Amber-on-black CRT vibe: pure black background, hi-vis amber for headings,
@@ -804,7 +841,7 @@ extension MDVTheme {
     /// resists the perceived flipping of similar letterforms.
     ///
     /// Typography lives at the cross-theme defaults — same measure, leading,
-    /// heading scale, and rhythm as High Contrast or Solarized Light. The
+    /// heading scale, and rhythm as High Contrast or Phosphor. The
     /// font is the entire point; everything else stays out of its way.
     ///
     /// **Two weight overrides are required for OpenDyslexic.** Its Regular is
@@ -878,8 +915,8 @@ extension MDVTheme {
         .highContrast,
         .sevilla,
         .charcoal,
-        .solarizedLight,
-        .solarizedDark,
+        .solariumDaylight,
+        .solariumMoonlight,
         .phosphor,
         .twilight,
         .standardErinLight,

@@ -65,8 +65,8 @@ Each theme should pick a tier explicitly and document the choice.
 | High Contrast | system sans | 16 | 0.30em | 1.75 / 1.4 / 1.15 | yes / no | 860pt | tier 1 (= body) | Defaults + tier-1 strong + system-blue accent. |
 | Sevilla | Alegreya (bundled) | 17 | 0.55em (≈1.6×) | 1.7 / 1.25 / 1.1 | faded / no | 620pt (≈75ch) | tier 1 (= body) | Long-form reading theme. Terracotta accent. |
 | Charcoal | system sans | 16.5 | 0.25em (≈1.46×) | 1.82 / 1.45 / 1.15 | faded / no | 920pt (≈110ch) | tier 2 (lifted) | "GitHub README, dark, all business." Muted-blue accent. |
-| Solarized Light | system sans | 16 | 0.30em | 1.75 / 1.4 / 1.15 | yes / no | 860pt | tier 1 (= body) | Defaults + Solarized orange accent. |
-| Solarized Dark | system sans | 16 | 0.30em | 1.75 / 1.4 / 1.15 | yes / no | 860pt | tier 2 (lifted) | Defaults + Solarized yellow accent. |
+| Solarium Daylight | Besley (bundled) | 16 | 0.20em (≈1.36×) | 1.55 / 1.28 / 1.1 | yes / no | 720pt (≈80ch) | tier 1 (= body) | Solarized Light palette + Besley slab serif. Solarized orange accent. |
+| Solarium Moonlight | Besley (bundled) | 16 | 0.20em (≈1.36×) | 1.55 / 1.28 / 1.1 | yes / no | 720pt | tier 1 (= body) | Solarized Dark palette + Besley. Solarized yellow accent. Strong drops from tier 2 to tier 1 vs old Solarized Dark. |
 | Phosphor | system sans | 16 | 0.30em | 1.75 / 1.4 / 1.15 | yes / no | 860pt | tier 1 (= body) | Defaults + amber accent (CRT vibe). |
 | Twilight | system sans | 16 | 0.30em | 1.75 / 1.4 / 1.15 | yes / no | 860pt | tier 2 (lifted) | Defaults + cream accent. |
 | Standard Erin Light | OpenDyslexic / Dyslexie | 15 | 0.30em | 1.75 / 1.4 / 1.15 | yes / no | 860pt | tier 1 (= body) | Defaults-everywhere typography. Heading weight = `.regular`, strong weight = `.bold` (font-specific). Cream bg, warm-dark text, terracotta accent. |
@@ -118,6 +118,52 @@ These are not generalizable to other themes — they tune around Alegreya's spec
 - **Bundle a code monospace.** System mono is fine. A serif theme with a serif "code style" loses the prose-vs.-code visual hint.
 - **Justify body text.** Left-rag stays — justified prose without a real shaping engine creates rivers and feels worse than left-aligned.
 - **Drop caps or ornamental flourishes.** This is a viewer, not a PDF designer. Restraint reads better.
+
+## Solarium (Daylight & Moonlight)
+
+> Solarium Daylight = Solarized Light palette wearing **Besley** (Owen Earl / Indestructible Type, OFL), a slab-serif revival explicitly designed for sustained screen reading. Solarium Moonlight = Solarized Dark palette wearing the same face. Same typography knobs across both — only the palette flips. Goal: keep the Solarized identity (base3 / base03 / base01 / base1 / blue / orange / yellow), give it the typeface those colors always wanted, balance density with readability so the page reads dense without crossing into long-form-reading territory like Sevilla.
+
+### Typeface
+
+Six Besley weights ship under `mdv/Fonts/` (~500 KB total): Regular, Italic, SemiBold, SemiBoldItalic, Bold, BoldItalic. Registered into the process-local font space at app launch via `CTFontManagerRegisterFontsForURL(.process)`, same mechanism Sevilla and Standard Erin use.
+
+**Family-table quirk worth knowing:** Besley's SemiBold and SemiBoldItalic ship with `family = "Besley SemiBold"` in the legacy 4-style name table (name ID 1) and `preferredFamily = "Besley"` in the typographic-family table (name ID 16). SwiftUI's `Font.custom("Besley", ...).weight(.semibold)` resolves through the typographic family, so it picks SemiBold cleanly — but a tool that only reads name ID 1 would miss it. Worth remembering if we ever swap out the renderer.
+
+### Why Besley
+
+- **Slab serif, not humanist.** Slab serifs scan better than humanist serifs at moderate measures (75–85ch). Sevilla pushes Alegreya into long-form territory at 75ch; Solarium widens to ~80ch and Besley's chunkier serifs still anchor cleanly.
+- **Tall x-height.** Lets us stay at the cross-theme default 16pt body without the 17pt bump Sevilla needed for Alegreya. Density-positive.
+- **Real italics, not slanted regulars.** Besley Italic has calligraphic letterforms — the Solarized link blue + an Italic emphasis run no longer reads as "the same thing slanted twice."
+- **Designed for screen.** Owen Earl explicitly tuned Besley for screen rendering; the contrast and stroke-weight balance hold up at 16pt better than most slabs.
+
+### Knobs
+
+| Knob | Value | Reason |
+| --- | --- | --- |
+| `bodyFontFamily` | `.custom("Besley")` | See typeface section. |
+| `baseFontSize` | 16 (default) | Besley's x-height is generous; 16pt reads "right-sized" without a bump. Sevilla bumps to 17 for Alegreya's smaller x-height; Charcoal nudges to 16.5 for SF Pro crispness; Besley sits comfortably at the default. |
+| `paragraphLineSpacingEm` | 0.20 (≈1.36× total) | Tight. Down from the cross-theme default 0.30em — and tighter than Charcoal's operational 0.25em. Slab serifs have strong horizontal serifs that visually anchor each line, so they can take much tighter leading than humanist serifs (Sevilla 0.55) or sans-serifs (default 0.30) without crowding. The goal is dense article, not long-form reading; this is the tight-leading edge of the slab-serif comfort zone. |
+| `articleMaxWidth` | 720pt (≈78–82ch) | Between Sevilla's 620pt (75ch, prose-comfort) and the 860pt default (95+ch, scannable). Slab serifs scan slightly wider than humanist serifs — 80ch is the upper edge of comfortable serif reading and the middle of "balance density and readability." |
+| `articleHorizontalPadding` | 36pt | Slight pull-in from the default 40 — gives the page presence in the window without feeling cramped. |
+| `h1SizeEm` / `h2SizeEm` / `h3SizeEm` | 1.55 / 1.28 / 1.1 | Down from default 1.75 / 1.4 / 1.15. Slab serifs at heading sizes carry visual weight on their own; pushing the scale higher reads as "magazine spread" rather than "article." The narrower 720pt measure also nudges in this direction — large headings at narrow measure feel disproportionate. |
+| `showH1Rule` / `showH2Rule` | true / false (defaults) | Single faded rule under H1 for orientation. The smaller heading scale + Besley SemiBold's natural section-break weight covers the rest. |
+| Vertical rhythm | defaults (24/16, 24/16, 24/16, p 16) | The cross-theme defaults work — Besley's heading weight + the H1 rule already break sections cleanly; no inflation needed. |
+| `headingFontWeight` | `.semibold` (default) | Resolves to Besley SemiBold (weight 600) via the typographic-family table. The right slab-serif heading weight: Bold is too heavy for headings, Medium too soft. |
+| `strongFontWeight` | `.semibold` (default) | Same. |
+| `strong` color | tier 1 (= body) for both Daylight + Moonlight | Besley SemiBold has visual heft on its own. Tier 2 (lifted) was needed in the old Solarized Dark because SF Pro semibold was too soft on the muted base1 body; Besley SemiBold doesn't need that lift. Drop to tier 1 for both variants. |
+
+### Why we kept Solarized's palette intact
+
+Ethan Schoonover's Solarized values are designed as a system — base03 / base02 / base01 / base00 / base0 / base1 / base2 / base3, each pair separated by exactly the L\* delta needed for foreground-vs-background contrast at every combination, with eight accent hues balanced for color-blind safety. Touching any of them risks breaking the system. The font swap is what we wanted; the palette already worked.
+
+The one exception: **Moonlight `strong` drops from tier 2 (#C5CDC2) to tier 1 (= body, base1)**. Old Solarized Dark used the lift because SF Pro semibold was too soft on base1; Besley SemiBold isn't.
+
+### What we explicitly did NOT do
+
+- **Increase heading scale.** Slab serifs are visually dense at heading sizes; default 1.75/1.4/1.15 reads as "designed magazine layout" with Besley. Smaller is right.
+- **Inflate vertical rhythm.** Defaults work — Besley's weight + the H1 rule carry section breaks. Generous rhythm is for long-form reading themes (Sevilla), not for "read for 20 minutes" themes.
+- **Bundle Besley Condensed or Narrow.** Tempting (the standard width is ~80ch at 720pt; Condensed would tighten to ~70ch and let us widen to 850pt for more density per line). Skipped because the Condensed variant has a different rhythm and would require its own typography pass.
+- **Swap to a serif code face.** Same call as Sevilla — system mono stays; the prose-vs-code visual delta matters.
 
 ## Charcoal
 
