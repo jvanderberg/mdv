@@ -10,6 +10,9 @@ enum FontRegistration {
     /// Alegreya: six weights for the Sevilla reading theme.
     /// OpenDyslexic: four weights for the Dyslexia themes — the FOSS face
     /// purpose-built for dyslexic readability (weighted glyph bottoms).
+    /// Besley: six weights for the Solarium reading themes — Owen Earl's
+    /// slab-serif revival (Indestructible Type, OFL), tuned for sustained
+    /// screen reading.
     private static let bundledFonts = [
         "Alegreya-Regular",
         "Alegreya-Italic",
@@ -21,6 +24,12 @@ enum FontRegistration {
         "OpenDyslexic-Italic",
         "OpenDyslexic-Bold",
         "OpenDyslexic-Bold-Italic",
+        "Besley-Regular",
+        "Besley-Italic",
+        "Besley-SemiBold",
+        "Besley-SemiBoldItalic",
+        "Besley-Bold",
+        "Besley-BoldItalic",
     ]
 
     static func registerBundledFonts() {
