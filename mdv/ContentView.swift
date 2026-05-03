@@ -90,12 +90,6 @@ struct ContentView: View {
     /// `selectedEntry` so the resulting onChange tick skips the backStack
     /// push. Cleared at the end of that tick.
     @State private var suppressBackStackPush = false
-    /// Mirror of `topVisibleBlock` updated via `.onChange`. Used as the
-    /// "scroll snapshot we're leaving" when pushing onto `backStack`,
-    /// because the computed `topVisibleBlock` reflects whatever's visible
-    /// *now* — by the time we want to capture it on a navigation event,
-    /// `visibleBlocks` may have started churning.
-    @State private var currentTopBlock: Int = 0
     /// If a fragment-bearing link triggers a cross-document load, the
     /// fragment is stashed here and consumed once `rawMarkdown` updates
     /// (the headings only exist after the file is read).
@@ -285,26 +279,22 @@ struct ContentView: View {
             // (goBack/goForward) is in progress, if there's no previous
             // entry (first load), or if the path didn't actually change
             // (history.add creates a fresh entry on every visit — those
-            // re-visits shouldn't clutter the stack). `currentTopBlock`
+            // re-visits shouldn't clutter the stack). `topVisibleBlock`
             // here still reflects the doc we're leaving because the new
-            // doc's blocks haven't fired their onAppear yet.
-            let leavingTop = currentTopBlock
+            // doc's blocks haven't fired their onAppear yet — read the
+            // computed property directly rather than mirroring it via
+            // another .onChange (writing state from a render-driven
+            // onChange triggers infinite re-render in SwiftUI).
+            let leavingTop = topVisibleBlock
             defer {
                 suppressBackStackPush = false
                 previousSelectedEntry = selectedEntry
-                // New doc — visibleBlocks will repopulate from 0 upward
-                // as blocks appear; reset the mirror so we don't carry
-                // the leaving doc's value.
-                currentTopBlock = 0
             }
             guard !suppressBackStackPush,
                   let prev = previousSelectedEntry,
                   prev.path != selectedEntry?.path else { return }
             backStack.append(NavSnapshot(entry: prev, topBlockIndex: leavingTop))
             forwardStack.removeAll()
-        }
-        .onChange(of: topVisibleBlock) { newValue in
-            currentTopBlock = newValue
         }
     }
 
@@ -2132,7 +2122,7 @@ struct ContentView: View {
     private func goBack() {
         guard let prev = backStack.popLast() else { return }
         if let current = selectedEntry {
-            forwardStack.append(NavSnapshot(entry: current, topBlockIndex: currentTopBlock))
+            forwardStack.append(NavSnapshot(entry: current, topBlockIndex: topVisibleBlock))
         }
         applySnapshot(prev)
     }
@@ -2140,7 +2130,7 @@ struct ContentView: View {
     private func goForward() {
         guard let next = forwardStack.popLast() else { return }
         if let current = selectedEntry {
-            backStack.append(NavSnapshot(entry: current, topBlockIndex: currentTopBlock))
+            backStack.append(NavSnapshot(entry: current, topBlockIndex: topVisibleBlock))
         }
         applySnapshot(next)
     }
@@ -2151,7 +2141,7 @@ struct ContentView: View {
     /// nothing is loaded yet.
     private func pushSameDocSnapshot() {
         guard let current = selectedEntry else { return }
-        backStack.append(NavSnapshot(entry: current, topBlockIndex: currentTopBlock))
+        backStack.append(NavSnapshot(entry: current, topBlockIndex: topVisibleBlock))
         forwardStack.removeAll()
     }
 
@@ -2698,16 +2688,12 @@ struct ContentView: View {
         }
     }
 
-    /// Persist the current scroll anchor for `entry`. Reads `topVisibleBlock`
-    /// directly (== `visibleBlocks.min()`) rather than the `currentTopBlock`
-    /// mirror, because the back-stack handler on `body` resets
-    /// `currentTopBlock = 0` in its defer block, and SwiftUI's invocation
-    /// order across multiple onChange handlers for the same key isn't
-    /// guaranteed — empirically that defer can fire before this save runs.
-    /// `visibleBlocks` is safe to read here: it's only wiped by the
-    /// `.onChange(of: rawMarkdown)` handler, which fires on the *next*
-    /// runloop tick after `loadCurrentEntry` mutates `rawMarkdown`, well
-    /// after we've already saved.
+    /// Persist the current scroll anchor for `entry`. Reads
+    /// `topVisibleBlock` (== `visibleBlocks.min()`). `visibleBlocks` is
+    /// safe to read here: it's only wiped by the `.onChange(of: rawMarkdown)`
+    /// handler, which fires on the *next* runloop tick after
+    /// `loadCurrentEntry` mutates `rawMarkdown`, well after we've
+    /// already saved.
     ///
     /// Caller must invoke this BEFORE any code path that mutates `rawMarkdown`
     /// for a different file — otherwise `blocks` will already reflect the
