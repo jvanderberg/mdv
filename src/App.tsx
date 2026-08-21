@@ -1,6 +1,5 @@
 import {
   type CSSProperties,
-  type DragEventHandler,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -1500,7 +1499,7 @@ function Inspector() {
             </label>
           </div>
         </div>
-        <nav className="grid min-h-0 gap-px overflow-auto px-2 py-1" data-testid="toc">
+        <nav className="min-h-0 overflow-auto px-2 py-1" data-testid="toc">
           <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
@@ -1538,7 +1537,7 @@ function Inspector() {
           data-testid="bookmarks-collapse"
         >
           <div
-            className="mdv-bookmarks-content grid px-2 pb-3"
+            className="mdv-bookmarks-content px-2 pb-3"
             data-testid="bookmarks-content"
             style={{ height: `${bookmarksHeight}px` }}
           >
@@ -1681,6 +1680,8 @@ function highlightInlineFindMatches(root: Element, query: string) {
 function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ bookmarkId: number; x: number; y: number } | null>(null);
+  const pointerDragRef = useRef<{ id: number; x: number; y: number; active: boolean } | null>(null);
+  const suppressClickUntilRef = useRef(0);
   const activeBookmarkId = useAppStore((state) => state.activeBookmarkId);
   const activeBlockIndex = useAppStore((state) => state.activeBlockIndex);
   const clearPlaceholder = useAppStore((state) => state.clearPlaceholder);
@@ -1707,6 +1708,31 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
     ids.splice(targetIndex, 0, id);
     setMenu(null);
     void reorderBookmarks(ids);
+  };
+  const reorderBookmarkBefore = (sourceId: number, targetId: number) => {
+    if (sourceId === targetId) return;
+    const ids = bookmarks.map((entry) => entry.id);
+    const sourceIndex = ids.indexOf(sourceId);
+    const targetIndex = ids.indexOf(targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    ids.splice(sourceIndex, 1);
+    ids.splice(targetIndex, 0, sourceId);
+    void reorderBookmarks(ids);
+  };
+  const finishPointerDrag = (event: ReactPointerEvent<HTMLLIElement>) => {
+    const drag = pointerDragRef.current;
+    pointerDragRef.current = null;
+    if (!drag?.active) {
+      setDraggingId(null);
+      return;
+    }
+    suppressClickUntilRef.current = Date.now() + 250;
+    setDraggingId(null);
+    const target = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>(".mdv-document-row[data-row-variant='bookmark'][data-bookmark-id]");
+    const targetId = Number(target?.dataset.bookmarkId);
+    if (Number.isInteger(targetId)) reorderBookmarkBefore(drag.id, targetId);
   };
   if (bookmarks.length === 0 && !placeholder) {
     return (
@@ -1754,31 +1780,33 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
           variant="bookmark"
           iconName={bookmark.file_exists ? "bookmarkFill" : "docText"}
           selected={activeBookmarkId === bookmark.id}
-          draggable
+          bookmarkId={bookmark.id}
           revealLabel={`Reveal bookmark ${bookmark.title} in Finder`}
           removeLabel={`Remove bookmark ${bookmark.title}`}
-          onDragStart={(event) => {
-            setDraggingId(bookmark.id);
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("text/plain", String(bookmark.id));
+          dragging={draggingId === bookmark.id}
+          onPointerDown={(event) => {
+            if (event.button !== 0 || event.ctrlKey || event.metaKey) return;
+            pointerDragRef.current = {
+              id: bookmark.id,
+              x: event.clientX,
+              y: event.clientY,
+              active: false,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
           }}
-          onDragEnd={() => setDraggingId(null)}
-          onDragOver={(event) => {
-            if (draggingId === null || draggingId === bookmark.id) return;
+          onPointerMove={(event) => {
+            const drag = pointerDragRef.current;
+            if (!drag || drag.id !== bookmark.id) return;
+            const moved = Math.hypot(event.clientX - drag.x, event.clientY - drag.y);
+            if (moved < 5 && !drag.active) return;
+            drag.active = true;
+            setDraggingId(drag.id);
             event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
           }}
-          onDrop={(event) => {
-            event.preventDefault();
-            const sourceId = Number(event.dataTransfer.getData("text/plain") || draggingId);
-            if (!Number.isInteger(sourceId) || sourceId === bookmark.id) return;
-            const ids = bookmarks.map((entry) => entry.id);
-            const sourceIndex = ids.indexOf(sourceId);
-            const targetIndex = ids.indexOf(bookmark.id);
-            if (sourceIndex < 0 || targetIndex < 0) return;
-            ids.splice(sourceIndex, 1);
-            ids.splice(targetIndex, 0, sourceId);
-            void reorderBookmarks(ids);
+          onPointerUp={finishPointerDrag}
+          onPointerCancel={() => {
+            pointerDragRef.current = null;
+            setDraggingId(null);
           }}
           onContextMenu={(event) => {
             event.preventDefault();
@@ -1787,6 +1815,7 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
           onReveal={bookmark.file_exists ? () => void revealPath(bookmark.path) : undefined}
           onRemove={() => void removeBookmark(bookmark.id)}
           onClick={() => {
+            if (Date.now() < suppressClickUntilRef.current) return;
             if (bookmark.file_exists) void openBookmark(bookmark.id);
           }}
         />
@@ -1946,15 +1975,16 @@ function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[]
 }
 
 function DocumentRow({
-  draggable = false,
+  bookmarkId,
+  dragging = false,
   iconName = "docText",
   muted = false,
   onClick,
   onContextMenu,
-  onDragEnd,
-  onDragOver,
-  onDragStart,
-  onDrop,
+  onPointerCancel,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
   onReveal,
   onRemove,
   revealLabel,
@@ -1966,15 +1996,16 @@ function DocumentRow({
   title,
   variant = "history",
 }: {
-  draggable?: boolean;
+  bookmarkId?: number;
+  dragging?: boolean;
   iconName?: IconName;
   muted?: boolean;
   onClick: () => void;
   onContextMenu?: (event: ReactMouseEvent<HTMLLIElement>) => void;
-  onDragEnd?: DragEventHandler<HTMLLIElement>;
-  onDragOver?: DragEventHandler<HTMLLIElement>;
-  onDragStart?: DragEventHandler<HTMLLIElement>;
-  onDrop?: DragEventHandler<HTMLLIElement>;
+  onPointerCancel?: (event: ReactPointerEvent<HTMLLIElement>) => void;
+  onPointerDown?: (event: ReactPointerEvent<HTMLLIElement>) => void;
+  onPointerMove?: (event: ReactPointerEvent<HTMLLIElement>) => void;
+  onPointerUp?: (event: ReactPointerEvent<HTMLLIElement>) => void;
   onReveal?: () => void;
   onRemove?: () => void;
   revealLabel?: string;
@@ -2009,14 +2040,15 @@ function DocumentRow({
           selected
             ? "bg-[color-mix(in_srgb,var(--chrome-text)_12%,transparent)]"
             : "hover:bg-[var(--panel-strong)]"
-        } ${muted ? "opacity-60" : ""}`}
+        } ${muted ? "opacity-60" : ""} ${dragging ? "opacity-55 ring-1 ring-[var(--accent)]" : ""}`}
+        data-bookmark-id={bookmarkId}
         data-selected={selected ? "true" : "false"}
         data-row-variant={variant}
-        draggable={draggable}
-        onDragEnd={onDragEnd}
-        onDragOver={onDragOver}
-        onDragStart={onDragStart}
-        onDrop={onDrop}
+        draggable={false}
+        onPointerCancel={onPointerCancel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
         onContextMenu={(event) => {
           if (onContextMenu) {
             onContextMenu(event);

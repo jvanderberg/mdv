@@ -202,6 +202,17 @@ test("inspector typography and spacing match the Swift pane", async ({ page }) =
   await expect(tocRow).toHaveCSS("font-size", "12px");
   await expect(tocRow).toHaveCSS("min-height", "26px");
   await expect(tocRow).toHaveCSS("border-radius", "5px");
+  const tocMetrics = await page.getByTestId("toc").evaluate((toc) => {
+    const row = toc.querySelector("button");
+    return {
+      paneHeight: toc.getBoundingClientRect().height,
+      rowHeight: row?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(tocMetrics.rowHeight).toBeLessThanOrEqual(32);
+  if (tocMetrics.paneHeight > 120) {
+    expect(tocMetrics.rowHeight).toBeLessThan(tocMetrics.paneHeight / 3);
+  }
 
   await page.getByRole("button", { name: "Filter headings" }).click();
   const search = page.locator(".mdv-inspector-search");
@@ -846,8 +857,26 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
   const bookmarkRows = page.locator(".mdv-document-row[data-row-variant='bookmark']");
   await expect(bookmarkRows).toHaveCount(2);
   await expect(bookmarkRows.nth(1)).toHaveAttribute("data-selected", "true");
+  const bookmarkMetrics = await page.getByTestId("bookmarks-content").evaluate((content) => {
+    const row = content.querySelector(".mdv-document-row");
+    return {
+      paneHeight: content.getBoundingClientRect().height,
+      rowHeight: row?.getBoundingClientRect().height ?? 0,
+    };
+  });
+  expect(bookmarkMetrics.rowHeight).toBeLessThan(bookmarkMetrics.paneHeight / 3);
 
-  await bookmarkRows.nth(1).dragTo(bookmarkRows.nth(0));
+  const sourceBox = await bookmarkRows.nth(1).boundingBox();
+  const targetBox = await bookmarkRows.nth(0).boundingBox();
+  expect(sourceBox).not.toBeNull();
+  expect(targetBox).not.toBeNull();
+  if (!sourceBox || !targetBox) return;
+  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
   await expect(bookmarkRows.first()).toContainText("Markdown Syntax Tour");
 
   await bookmarkRows.first().click({ button: "right" });
