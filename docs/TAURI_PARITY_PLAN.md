@@ -43,6 +43,13 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Bookmark drag-and-drop now uses `@dnd-kit` sortable rows instead of the prior
+  hand-rolled pointer reorder path. Dragging shows a real drag overlay item,
+  target rows expose an accent drop-location indicator, the existing row button
+  remains the single accessible action target, and overflowing bookmark lists
+  keep their own scroll range. Covered by the Playwright workflow `bookmarks
+  track current selection and can be reordered` plus `bookmarks pane scrolls when
+  saved bookmarks overflow`.
 - Completed a PR-by-PR audit of the closed upstream `tqbf/mdv` PR history in
   `docs/UPSTREAM_PR_PARITY_AUDIT.md`. Mermaid PRs #27 and #29 remain explicitly
   ignored by request. The audit pass added SQLite `SQLITE_OPEN_FULLMUTEX`

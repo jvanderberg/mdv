@@ -876,6 +876,12 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
     steps: 6,
   });
+  await expect(
+    page.locator(".mdv-document-row[data-row-variant='bookmark'][data-dragging='true']"),
+  ).toHaveCount(2);
+  await expect(
+    page.locator(".mdv-document-row[data-row-variant='bookmark'][data-drop-target='true']").first(),
+  ).toBeVisible();
   await page.mouse.up();
   await expect(bookmarkRows.first()).toContainText("Markdown Syntax Tour");
 
