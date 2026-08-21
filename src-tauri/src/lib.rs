@@ -246,18 +246,17 @@ impl Store {
         if query.is_empty() {
             return Ok(Vec::new());
         }
-        let fts_query = query
-            .split_whitespace()
-            .map(|part| format!("{}*", part.replace('"', "\"\"")))
-            .collect::<Vec<_>>()
-            .join(" ");
+        let fts_query = make_fts_query(query);
+        if fts_query.is_empty() {
+            return Ok(Vec::new());
+        }
         let mut stmt = self.conn.prepare(
             r#"
-            SELECT path, filename, snippet(history_fts, 1, '[', ']', '...', 18)
+            SELECT path, filename, snippet(history_fts, 1, char(2), char(3), '…', 14)
             FROM history_fts
             WHERE history_fts MATCH ?1
             ORDER BY rank
-            LIMIT 50
+            LIMIT 80
             "#,
         )?;
         let rows = stmt.query_map([fts_query], |row| {
@@ -747,6 +746,24 @@ fn filename(path: &Path) -> String {
         .to_string()
 }
 
+fn make_fts_query(input: &str) -> String {
+    input
+        .split_whitespace()
+        .filter_map(|token| {
+            let cleaned = token
+                .chars()
+                .filter(|ch| !matches!(ch, '"' | '(' | ')' | ':' | '*' | '^'))
+                .collect::<String>();
+            if cleaned.is_empty() {
+                None
+            } else {
+                Some(format!("\"{}\"*", cleaned))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct DocumentSet {
     primary: PathBuf,
@@ -1221,7 +1238,11 @@ mod tests {
         let hits = store.search_history("needle").unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].filename, "first.md");
-        assert!(hits[0].snippet.contains("[Needle]"));
+        assert!(hits[0].snippet.contains("\u{2}Needle\u{3}"));
+
+        let prefix_hits = store.search_history("nee (").unwrap();
+        assert_eq!(prefix_hits.len(), 1);
+        assert_eq!(prefix_hits[0].filename, "first.md");
 
         store.remove_history(&first.to_string_lossy()).unwrap();
         assert!(store.search_history("needle").unwrap().is_empty());
@@ -1229,6 +1250,16 @@ mod tests {
 
         store.clear_history().unwrap();
         assert!(store.list_history().unwrap().is_empty());
+    }
+
+    #[test]
+    fn fts_query_matches_swift_prefix_sanitizing() {
+        assert_eq!(make_fts_query(" auth token "), r#""auth"* "token"*"#);
+        assert_eq!(
+            make_fts_query(r#"need"le (alpha): ^beta*"#),
+            r#""needle"* "alpha"* "beta"*"#,
+        );
+        assert_eq!(make_fts_query(r#" " () : * ^ "#), "");
     }
 
     #[test]

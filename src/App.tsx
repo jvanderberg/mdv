@@ -384,6 +384,7 @@ function ThemeMenu({
 
 function Sidebar() {
   const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const searchHistory = useAppStore((state) => state.searchHistory);
   const clearHistory = useAppStore((state) => state.clearHistory);
   const globalHits = useAppStore((state) => state.globalHits);
@@ -418,7 +419,12 @@ function Sidebar() {
               id="history-search"
               className="mdv-input mdv-pane-input"
               placeholder="Search history"
-              onChange={(event) => void searchHistory(event.currentTarget.value)}
+              value={searchQuery}
+              onChange={(event) => {
+                const query = event.currentTarget.value;
+                setSearchQuery(query);
+                void searchHistory(query);
+              }}
             />
             <button
               className="justify-self-start rounded px-1 py-0.5 text-[10px] normal-case hover:bg-[var(--panel-strong)]"
@@ -433,7 +439,7 @@ function Sidebar() {
 
       <div className="grid gap-0.5 p-2 pt-1" data-testid="history-list">
         {globalHits.length > 0 ? (
-          <SearchHits hits={globalHits} />
+          <SearchHits hits={globalHits} query={searchQuery} />
         ) : (
           <HistoryRows history={history} />
         )}
@@ -538,6 +544,14 @@ function Viewer() {
   );
 
   useEffect(() => {
+    const focusFind = () => {
+      setFindVisible(true);
+      window.requestAnimationFrame(() => {
+        scrollRef.current
+          ?.querySelector<HTMLInputElement>("[data-testid='document-find']")
+          ?.focus();
+      });
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         !event.metaKey ||
@@ -549,15 +563,15 @@ function Viewer() {
         return;
       }
       event.preventDefault();
-      setFindVisible(true);
-      window.requestAnimationFrame(() => {
-        scrollRef.current
-          ?.querySelector<HTMLInputElement>("[data-testid='document-find']")
-          ?.focus();
-      });
+      focusFind();
     };
+    const onOpenFind = () => focusFind();
     window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
+    window.addEventListener("mdv:open-find", onOpenFind);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("mdv:open-find", onOpenFind);
+    };
   }, []);
 
   useEffect(() => {
@@ -848,21 +862,65 @@ function HistoryRows({ history }: { history: HistoryEntry[] }) {
   ));
 }
 
-function SearchHits({ hits }: { hits: SearchHit[] }) {
+function SearchHits({ hits, query }: { hits: SearchHit[]; query: string }) {
   const openDocument = useAppStore((state) => state.openDocument);
   const revealPath = useAppStore((state) => state.revealPath);
+  const setFindQuery = useAppStore((state) => state.setFindQuery);
+  const openHit = async (hit: SearchHit) => {
+    await openDocument(hit.path);
+    setFindQuery(query);
+    window.dispatchEvent(new CustomEvent("mdv:open-find", { bubbles: false }));
+  };
   return hits.map((hit) => (
     <DocumentRow
       key={hit.path}
       path={hit.path}
       title={hit.filename}
-      subtitle={hit.snippet}
+      subtitle={<HighlightedSnippet snippet={hit.snippet} />}
       variant="search"
       revealLabel={`Reveal ${hit.filename} in Finder`}
       onReveal={() => void revealPath(hit.path)}
-      onClick={() => void openDocument(hit.path)}
+      onClick={() => void openHit(hit)}
     />
   ));
+}
+
+function HighlightedSnippet({ snippet }: { snippet: string }) {
+  const parts: Array<{ text: string; highlighted: boolean; key: number }> = [];
+  let highlighted = false;
+  let buffer = "";
+  let key = 0;
+  const flush = () => {
+    if (buffer.length === 0) return;
+    parts.push({ text: buffer, highlighted, key: key++ });
+    buffer = "";
+  };
+  for (const char of snippet) {
+    if (char === "\u0002") {
+      flush();
+      highlighted = true;
+    } else if (char === "\u0003") {
+      flush();
+      highlighted = false;
+    } else {
+      buffer += char;
+    }
+  }
+  flush();
+
+  return (
+    <>
+      {parts.map((part) =>
+        part.highlighted ? (
+          <strong className="mdv-snippet-match" key={part.key}>
+            {part.text}
+          </strong>
+        ) : (
+          <span key={part.key}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
@@ -998,7 +1056,7 @@ function DocumentRow({
   removeLabel?: string;
   path: string;
   selected?: boolean;
-  subtitle: string;
+  subtitle: ReactNode;
   subtitleMode?: "head" | "tail";
   title: string;
   variant?: "history" | "search" | "bookmark";

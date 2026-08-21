@@ -283,6 +283,19 @@ test("history search, document find, and bookmarks are automatic workflows", asy
   await page.getByRole("button", { name: "Search history" }).click();
   await page.getByPlaceholder("Search history").fill("checklist");
   await expect(page.getByTestId("history-list")).toContainText("README.md");
+  await expect(page.locator(".mdv-snippet-match")).toContainText("checklist", {
+    ignoreCase: true,
+  });
+  await page
+    .getByTestId("history-list")
+    .getByRole("button", { name: /^README\.md/ })
+    .click();
+  await expect(page.getByTestId("document-find")).toHaveValue("checklist");
+  await expect(page.locator(".mdv-find-current-block")).toHaveCount(1);
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/syntax.md")],
+  );
 
   await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
@@ -779,6 +792,18 @@ async function installMockApi(page: Page) {
         block_fingerprint: string;
         file_exists: boolean;
       }> = [];
+      const snippetFor = (content: string, query: string) => {
+        const normalized = content.toLowerCase();
+        const needle = query.trim().toLowerCase();
+        const index = normalized.indexOf(needle);
+        if (index < 0 || needle.length === 0) return content.slice(0, 140);
+        const start = Math.max(0, index - 36);
+        const end = Math.min(content.length, index + needle.length + 72);
+        return `${start > 0 ? "…" : ""}${content.slice(start, index)}\u0002${content.slice(
+          index,
+          index + needle.length,
+        )}\u0003${content.slice(index + needle.length, end)}${end < content.length ? "…" : ""}`;
+      };
 
       window.__MDV_TEST_API__ = {
         async openPath() {
@@ -905,7 +930,7 @@ async function installMockApi(page: Page) {
             .map((entry) => ({
               path: entry.path,
               filename: entry.filename,
-              snippet: docs[entry.path].content.slice(0, 140),
+              snippet: snippetFor(docs[entry.path].content, query),
             }));
         },
         async addBookmark({ path, title, blockIndex, blockFingerprint }) {

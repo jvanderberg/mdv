@@ -505,9 +505,10 @@ Tests:
 
 ### Phase 3 — Find And Global Search Parity
 
-Status: in progress. The find bar, match count, next/previous navigation, and
-rendered-block match/current highlighting are covered. Inline text highlights,
-global snippet highlighting, and stale-query protection remain.
+Status: in progress. The find bar, match count, next/previous navigation,
+rendered-block match/current highlighting, Swift-style global search snippets,
+and stale-query protection are covered. Inline text highlights and contextual
+`Cmd+F` routing remain.
 
 Goal: replace the current simple find with mdv’s usable search behavior.
 
@@ -517,16 +518,21 @@ Goal: replace the current simple find with mdv’s usable search behavior.
 - Done: match counter and current-match state.
 - Done: next/previous scrolls to the current match by rendered block index.
 - Route `Cmd+F` to history search when sidebar search is focused.
-- Global search UI with highlighted snippets.
-- Open/reveal actions on global hits.
+- Done: global search UI with highlighted snippets.
+- Done: open/reveal actions on global hits.
+- Done: opening a global hit seeds the in-document find query.
+- Done: stale global-search responses are discarded.
 
 Tests:
 
 - Unit tests for match calculation and highlight eligibility.
 - Done: Playwright tests for keyboard find, next/previous, block highlighting,
   current-match state, and rendered-block scrolling.
-- Add Playwright coverage for Escape, global search, snippet highlighting, and
-  stale-query behavior.
+- Done: Rust tests for FTS prefix/sanitizing and Swift-style snippet markers.
+- Done: unit coverage for stale-query behavior.
+- Done: Playwright coverage for global search snippets and opening hits into
+  in-document find.
+- Add Playwright coverage for Escape and contextual `Cmd+F` routing.
 
 ### Phase 4 — Scroll Anchors, Bookmarks, Placeholder
 

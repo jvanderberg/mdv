@@ -91,6 +91,7 @@ interface NavigationSnapshot {
 
 const themes: Theme[] = ["paper", "charcoal", "solarized"];
 const documentExtensions = new Set(["md", "markdown", "mdown", "mkd", "txt"]);
+let searchHistoryRequestToken = 0;
 
 export const useAppStore = create<AppState>((set, get) => ({
   api: window.__MDV_TEST_API__ ?? defaultApi,
@@ -303,11 +304,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async searchHistory(query) {
+    const token = ++searchHistoryRequestToken;
     if (!query.trim()) {
       set({ globalHits: [] });
       return;
     }
-    set({ globalHits: await get().api.searchHistory(query) });
+    const hits = await get().api.searchHistory(query);
+    if (token === searchHistoryRequestToken) {
+      set({ globalHits: hits });
+    }
   },
 
   async saveScrollPosition(scrollTop) {

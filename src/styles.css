@@ -360,6 +360,11 @@ button {
   box-shadow: 0 0 0 3px rgb(255 214 10 / 0.38);
 }
 
+.mdv-snippet-match {
+  color: var(--chrome-text);
+  font-weight: 600;
+}
+
 .markdown-body table {
   width: 100%;
   border-collapse: collapse;
