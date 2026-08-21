@@ -2301,6 +2301,9 @@ async function installMockApi(page: Page) {
         else pendingOpenRequests.push(paths);
       };
       window.__MDV_MENU_COMMAND__ = async (command: string) => {
+        for (let attempt = 0; !menuHandler && attempt < 100; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 10));
+        }
         if (menuHandler) await menuHandler(command);
       };
       window.__MDV_SHARED_STATE_CHANGED__ = async () => {
