@@ -43,6 +43,12 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- The Tauri release pipeline now has a macOS GitHub Actions workflow that builds
+  Apple Silicon and Intel DMGs with `tauri-apps/tauri-action@v1`, uploads draft
+  release/workflow artifacts, and passes Apple certificate plus App Store
+  Connect API-key secrets through to Tauri for signing and notarization. Covered
+  by the Tauri workflow contract test in `src/tauriConfig.test.ts`; actual
+  notarization requires the GitHub repository secrets documented in the workflow.
 - `Open in New Window...` now follows the Swift flow: it runs a separate file
   picker, creates a new Tauri document window at Swift's default/minimum window
   sizes, seeds only that window with the selected document, and leaves the
@@ -683,7 +689,7 @@ Goal: make the Tauri app replace the Swift app operationally.
 - Done: Help document command.
 - Done: CLI installer equivalent or a Tauri-native CLI strategy.
 - Done: App icon and bundle metadata.
-- Release DMG/signing/notarization pipeline.
+- Done: Release DMG/signing/notarization pipeline.
 
 Tests:
 
@@ -692,6 +698,8 @@ Tests:
 - Done: CLI smoke test.
 - Done: App open event smoke test if automatable.
 - Done: New window menu smoke test with current-window isolation.
+- Done: Release workflow contract test for DMG targets, signing/notarization
+  environment, and artifact upload.
 
 ## Working Method
 

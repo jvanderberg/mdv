@@ -51,4 +51,27 @@ describe("tauri bundle parity contract", () => {
 
     expect(capability.windows).toEqual(["*"]);
   });
+
+  it("keeps a signed and notarized DMG release workflow", () => {
+    const workflow = readFileSync(
+      resolve(process.cwd(), ".github/workflows/tauri-release.yml"),
+      "utf8",
+    );
+    const packageJson = JSON.parse(
+      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(packageJson.scripts["tauri:dmg"]).toBe("tauri build --bundles dmg");
+    expect(workflow).toContain("tauri-apps/tauri-action@v1");
+    expect(workflow).toContain("aarch64-apple-darwin");
+    expect(workflow).toContain("x86_64-apple-darwin");
+    expect(workflow).toContain("--bundles dmg");
+    expect(workflow).toContain("APPLE_CERTIFICATE");
+    expect(workflow).toContain("APPLE_CERTIFICATE_PASSWORD");
+    expect(workflow).toContain("APPLE_API_KEY_PATH");
+    expect(workflow).toContain("APPLE_API_ISSUER");
+    expect(workflow).toContain("KEYCHAIN_PASSWORD");
+    expect(workflow).toContain("releaseDraft: true");
+    expect(workflow).toContain("uploadWorkflowArtifacts: true");
+  });
 });
