@@ -17,4 +17,7 @@ createRoot(root).render(
 window.__MDV_OPEN_DOCUMENT__ = async (path: string) => {
   await useAppStore.getState().openDocument(path);
 };
+window.__MDV_MENU_COMMAND__ = async (command: string) => {
+  window.dispatchEvent(new CustomEvent("mdv:test-menu-command", { detail: command }));
+};
 window.__MDV_RESOLVE_BOOKMARK__ = resolveBookmarkForTest;

@@ -49,10 +49,13 @@ export interface TocHeading {
 declare global {
   interface Window {
     __MDV_TEST_API__?: import("./tauri").MdvApi;
+    __MDV_CLI_INSTALL_CALLS__?: string[];
     __MDV_DROP_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_OPEN_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_PENDING_OPEN_PATHS__?: string[];
+    __MDV_EDITOR_CALLS__?: Array<{ editorPath: string; documentPath: string }>;
     __MDV_EXTERNAL_CALLS__?: string[];
+    __MDV_MENU_COMMAND__?: (command: string) => Promise<void>;
     __MDV_OPEN_DOCUMENT__?: (path: string) => Promise<void>;
     __MDV_REVEAL_CALLS__?: string[];
     __MDV_RESOLVE_BOOKMARK__?: (blocks: string[], index: number, fingerprint: string) => number;

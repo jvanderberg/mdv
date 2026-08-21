@@ -88,6 +88,16 @@ button {
   line-height: 1;
 }
 
+.mdv-symbol {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .mdv-button:hover,
 .mdv-icon-button:hover {
   background: color-mix(in srgb, var(--chrome-text) 8%, transparent);
@@ -95,7 +105,8 @@ button {
 
 .mdv-button:disabled,
 .mdv-icon-button:disabled {
-  opacity: 0.45;
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .mdv-input {
@@ -131,6 +142,12 @@ button {
   background: color-mix(in srgb, var(--chrome-text) 8%, transparent);
 }
 
+.mdv-pane-icon-button .mdv-symbol {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.1;
+}
+
 .mdv-find-input {
   width: 160px;
   border: 0;
@@ -138,6 +155,31 @@ button {
   color: var(--chrome-text);
   outline: none;
   padding: 4px 2px;
+}
+
+.mdv-find-button {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+}
+
+.mdv-find-button:hover {
+  background: color-mix(in srgb, var(--chrome-text) 8%, transparent);
+}
+
+.mdv-find-button:disabled {
+  opacity: 0.35;
+}
+
+.mdv-find-button .mdv-symbol {
+  width: 13px;
+  height: 13px;
 }
 
 @media (max-width: 640px) {

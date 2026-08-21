@@ -15,8 +15,14 @@ import type {
 export interface MdvApi {
   openPath(): Promise<string | null>;
   openDirectory(): Promise<string | null>;
+  chooseEditor(): Promise<string | null>;
+  openInEditor(editorPath: string, documentPath: string): Promise<void>;
+  installCli(): Promise<string>;
   subscribeToFileDrops(onDrop: (paths: string[]) => void | Promise<void>): Promise<() => void>;
   subscribeToOpenRequests(onOpen: (paths: string[]) => void | Promise<void>): Promise<() => void>;
+  subscribeToMenuCommands(
+    onCommand: (command: string) => void | Promise<void>,
+  ): Promise<() => void>;
   takePendingOpenPaths(): Promise<string[]>;
   openExternalTarget(target: string): Promise<void>;
   revealPath(path: string): Promise<void>;
@@ -59,6 +65,21 @@ export const api: MdvApi = {
     });
     return typeof selected === "string" ? selected : null;
   },
+  async chooseEditor() {
+    const selected = await open({
+      directory: false,
+      multiple: false,
+      defaultPath: "/Applications",
+      filters: [{ name: "Applications", extensions: ["app"] }],
+    });
+    return typeof selected === "string" ? selected : null;
+  },
+  openInEditor(editorPath, documentPath) {
+    return tauriInvoke("open_in_editor", { editorPath, documentPath });
+  },
+  installCli() {
+    return tauriInvoke("install_cli");
+  },
   async subscribeToFileDrops(onDrop) {
     return getCurrentWebview().onDragDropEvent(async (event) => {
       if (event.payload.type === "drop") await onDrop(event.payload.paths);
@@ -67,6 +88,11 @@ export const api: MdvApi = {
   async subscribeToOpenRequests(onOpen) {
     return listen<string[]>("mdv://open-paths", async (event) => {
       await onOpen(event.payload);
+    });
+  },
+  async subscribeToMenuCommands(onCommand) {
+    return listen<string>("mdv://menu-command", async (event) => {
+      await onCommand(event.payload);
     });
   },
   takePendingOpenPaths() {

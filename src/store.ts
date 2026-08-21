@@ -21,17 +21,27 @@ export interface AppState {
   globalHits: SearchHit[];
   findQuery: string;
   findMatches: number[];
+  currentFindMatchIndex: number;
   currentFragment: string | null;
   pendingScrollTop: number | null;
   theme: Theme;
   zoom: number;
   inspectorVisible: boolean;
+  sidebarVisible: boolean;
+  editorAppPath: string;
+  loadRemoteImages: boolean;
+  smartTypography: boolean;
+  viewerScrollTop: number;
+  placeholder: NavigationSnapshot | null;
   backStack: NavigationSnapshot[];
   forwardStack: NavigationSnapshot[];
   setApi: (api: MdvApi) => void;
   refreshLists: () => Promise<void>;
   chooseAndOpenDocument: () => Promise<void>;
   chooseAndOpenDirectory: () => Promise<void>;
+  chooseEditor: () => Promise<void>;
+  editCurrentFile: () => Promise<void>;
+  forgetEditor: () => void;
   openDocument: (path: string) => Promise<void>;
   openFirstPath: (paths: string[]) => Promise<void>;
   navigateToHref: (href: string) => Promise<void>;
@@ -39,22 +49,34 @@ export interface AppState {
   navigateForward: () => Promise<void>;
   revealPath: (path: string) => Promise<void>;
   setFindQuery: (query: string) => void;
+  nextFindMatch: () => void;
+  previousFindMatch: () => void;
   searchHistory: (query: string) => Promise<void>;
   saveScrollPosition: (scrollTop: number) => Promise<void>;
+  setViewerScrollTop: (scrollTop: number) => void;
   consumePendingScrollTop: () => number | null;
   addBookmarkAtCurrentSpot: () => Promise<void>;
+  openBookmarkSlot: (slot: number) => Promise<void>;
+  setPlaceholder: () => void;
+  jumpToPlaceholder: () => Promise<void>;
   removeHistoryEntry: (path: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   removeBookmark: (id: number) => Promise<void>;
   cycleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  resetZoom: () => void;
   toggleInspector: () => void;
+  toggleSidebar: () => void;
+  toggleLoadRemoteImages: () => void;
+  toggleSmartTypography: () => void;
 }
 
 interface NavigationSnapshot {
   path: string;
   fragment: string | null;
+  scrollTop?: number;
 }
 
 const themes: Theme[] = ["paper", "charcoal", "solarized"];
@@ -71,11 +93,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   globalHits: [],
   findQuery: "",
   findMatches: [],
+  currentFindMatchIndex: 0,
   currentFragment: null,
   pendingScrollTop: null,
   theme: readTheme(),
   zoom: readStoredNumber("mdv.zoom", 1),
   inspectorVisible: localStorage.getItem("mdv.inspector") !== "false",
+  sidebarVisible: localStorage.getItem("mdv.sidebar") !== "false",
+  editorAppPath: localStorage.getItem("mdv.editorAppPath") ?? "",
+  loadRemoteImages: localStorage.getItem("mdv.loadRemoteImages") === "true",
+  smartTypography: localStorage.getItem("mdv.smartTypography") !== "false",
+  viewerScrollTop: 0,
+  placeholder: null,
   backStack: [],
   forwardStack: [],
 
@@ -99,9 +128,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (selected) await get().openDocument(selected);
   },
 
+  async chooseEditor() {
+    const selected = await get().api.chooseEditor();
+    if (!selected) return;
+    localStorage.setItem("mdv.editorAppPath", selected);
+    set({ editorAppPath: selected });
+    if (get().document) await get().editCurrentFile();
+  },
+
+  async editCurrentFile() {
+    const { api, document } = get();
+    if (!document) return;
+    let { editorAppPath } = get();
+    if (!editorAppPath) {
+      const selected = await api.chooseEditor();
+      if (!selected) return;
+      editorAppPath = selected;
+      localStorage.setItem("mdv.editorAppPath", editorAppPath);
+      set({ editorAppPath });
+    }
+    await api.openInEditor(editorAppPath, document.path);
+  },
+
+  forgetEditor() {
+    localStorage.removeItem("mdv.editorAppPath");
+    set({ editorAppPath: "" });
+  },
+
   async openDocument(path) {
     const loaded = await get().api.loadMarkdown(path);
-    const rendered = renderMarkdown(loaded.content);
+    const rendered = renderMarkdown(loaded.content, {
+      loadRemoteImages: get().loadRemoteImages,
+      typographer: get().smartTypography,
+    });
     const findMatches = findBlockMatches(rendered.blocks, get().findQuery);
     const scrollPosition = await get().api.loadScrollPosition(loaded.path);
     set({
@@ -110,6 +169,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       blocks: rendered.blocks,
       toc: rendered.toc,
       findMatches,
+      currentFindMatchIndex: 0,
       currentFragment: null,
       pendingScrollTop: scrollPosition?.scroll_top ?? 0,
       globalHits: [],
@@ -188,7 +248,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       findQuery: query,
       findMatches: findBlockMatches(get().blocks, query),
+      currentFindMatchIndex: 0,
     });
+  },
+
+  nextFindMatch() {
+    const { currentFindMatchIndex, findMatches } = get();
+    if (findMatches.length === 0) return;
+    const index = (currentFindMatchIndex + 1) % findMatches.length;
+    set({ currentFindMatchIndex: index, pendingScrollTop: findMatches[index] * 220 });
+  },
+
+  previousFindMatch() {
+    const { currentFindMatchIndex, findMatches } = get();
+    if (findMatches.length === 0) return;
+    const index = (currentFindMatchIndex - 1 + findMatches.length) % findMatches.length;
+    set({ currentFindMatchIndex: index, pendingScrollTop: findMatches[index] * 220 });
   },
 
   async searchHistory(query) {
@@ -211,6 +286,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  setViewerScrollTop(scrollTop) {
+    set({ viewerScrollTop: Math.max(0, scrollTop) });
+  },
+
   consumePendingScrollTop() {
     const scrollTop = get().pendingScrollTop;
     set({ pendingScrollTop: null });
@@ -218,9 +297,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async addBookmarkAtCurrentSpot() {
-    const { api, blocks, document, findMatches, toc } = get();
+    const { api, blocks, document, findMatches, toc, viewerScrollTop } = get();
     if (!document) return;
-    const blockIndex = findMatches[0] ?? 0;
+    const blockIndex = findMatches[0] ?? blockIndexForScroll(viewerScrollTop, blocks.length);
     await api.addBookmark({
       path: document.path,
       title: toc[0]?.text ?? document.filename,
@@ -228,6 +307,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       blockFingerprint: bookmarkFingerprint(blocks[blockIndex] ?? ""),
     });
     await get().refreshLists();
+  },
+
+  async openBookmarkSlot(slot) {
+    const bookmark = get().bookmarks[slot - 1];
+    if (!bookmark) return;
+    await get().openDocument(bookmark.path);
+    set({ pendingScrollTop: bookmark.block_index * 220 });
+  },
+
+  setPlaceholder() {
+    const { document, viewerScrollTop } = get();
+    if (!document) return;
+    set({ placeholder: { path: document.path, fragment: null, scrollTop: viewerScrollTop } });
+  },
+
+  async jumpToPlaceholder() {
+    const { placeholder } = get();
+    if (!placeholder) return;
+    await get().openDocument(placeholder.path);
+    set({
+      currentFragment: placeholder.fragment,
+      pendingScrollTop: placeholder.scrollTop ?? 0,
+    });
   },
 
   async removeHistoryEntry(path) {
@@ -255,8 +357,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   cycleTheme() {
     const next = themes[(themes.indexOf(get().theme) + 1) % themes.length];
-    localStorage.setItem("mdv.theme", next);
-    set({ theme: next });
+    get().setTheme(next);
+  },
+
+  setTheme(theme) {
+    localStorage.setItem("mdv.theme", theme);
+    set({ theme });
   },
 
   zoomIn() {
@@ -271,10 +377,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ zoom });
   },
 
+  resetZoom() {
+    localStorage.setItem("mdv.zoom", "1");
+    set({ zoom: 1 });
+  },
+
   toggleInspector() {
     const inspectorVisible = !get().inspectorVisible;
     localStorage.setItem("mdv.inspector", String(inspectorVisible));
     set({ inspectorVisible });
+  },
+
+  toggleSidebar() {
+    const sidebarVisible = !get().sidebarVisible;
+    localStorage.setItem("mdv.sidebar", String(sidebarVisible));
+    set({ sidebarVisible });
+  },
+
+  toggleLoadRemoteImages() {
+    const loadRemoteImages = !get().loadRemoteImages;
+    localStorage.setItem("mdv.loadRemoteImages", String(loadRemoteImages));
+    set({ loadRemoteImages });
+    rerenderCurrentDocument(set, get);
+  },
+
+  toggleSmartTypography() {
+    const smartTypography = !get().smartTypography;
+    localStorage.setItem("mdv.smartTypography", String(smartTypography));
+    set({ smartTypography });
+    rerenderCurrentDocument(set, get);
   },
 }));
 
@@ -296,6 +427,26 @@ export function readStoredNumber(key: string, fallback: number): number {
   if (stored === null) return fallback;
   const value = Number(stored);
   return Number.isFinite(value) ? value : fallback;
+}
+
+function blockIndexForScroll(scrollTop: number, blockCount: number): number {
+  if (blockCount <= 0) return 0;
+  return Math.max(0, Math.min(blockCount - 1, Math.floor(scrollTop / 220)));
+}
+
+function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get: () => AppState) {
+  const { document, findQuery, loadRemoteImages, smartTypography } = get();
+  if (!document) return;
+  const rendered = renderMarkdown(document.content, {
+    loadRemoteImages,
+    typographer: smartTypography,
+  });
+  set({
+    html: rendered.html,
+    blocks: rendered.blocks,
+    toc: rendered.toc,
+    findMatches: findBlockMatches(rendered.blocks, findQuery),
+  });
 }
 
 type LinkTarget =

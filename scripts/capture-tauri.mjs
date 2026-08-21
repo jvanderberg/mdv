@@ -33,6 +33,8 @@ try {
 
   await page.addInitScript(() => {
     localStorage.clear();
+    localStorage.setItem("mdv.inspector", "true");
+    localStorage.setItem("mdv.sidebar", "true");
     const history = [];
     const scrollPositions = new Map();
     window.__MDV_TEST_API__ = {
@@ -41,6 +43,13 @@ try {
       },
       async openDirectory() {
         return null;
+      },
+      async chooseEditor() {
+        return null;
+      },
+      async openInEditor() {},
+      async installCli() {
+        return "installed";
       },
       async loadMarkdown(path) {
         const filename = path.split("/").pop() || path;
@@ -96,6 +105,9 @@ try {
         return () => {};
       },
       async subscribeToOpenRequests() {
+        return () => {};
+      },
+      async subscribeToMenuCommands() {
         return () => {};
       },
       async takePendingOpenPaths() {

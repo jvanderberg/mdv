@@ -9,12 +9,20 @@ export interface RenderedDocument {
   blocks: string[];
 }
 
-export function renderMarkdown(markdown: string): RenderedDocument {
+export interface RenderMarkdownOptions {
+  loadRemoteImages?: boolean;
+  typographer?: boolean;
+}
+
+export function renderMarkdown(
+  markdown: string,
+  { loadRemoteImages = false, typographer = true }: RenderMarkdownOptions = {},
+): RenderedDocument {
   const toc: TocHeading[] = [];
   const md = new MarkdownIt({
     html: false,
     linkify: true,
-    typographer: true,
+    typographer,
     highlight(code, lang) {
       const language = resolveHighlightLanguage(lang);
       const highlighted = language
@@ -56,6 +64,11 @@ export function renderMarkdown(markdown: string): RenderedDocument {
       return imagePlaceholder("image not found: inline data:", "missing");
     }
     if (isRemoteImage(src)) {
+      if (loadRemoteImages) {
+        token.attrSet("class", classList(token.attrGet("class"), "mdv-image"));
+        token.attrSet("alt", alt);
+        return defaultImageRender(tokens, idx, options, env, self);
+      }
       return `<span class="mdv-image-placeholder mdv-image-placeholder-remote" data-image-state="remote-blocked"><strong>Remote image blocked</strong><span>${escapeHtml(remoteLabel(src))}</span></span>`;
     }
     token.attrSet("class", classList(token.attrGet("class"), "mdv-image"));

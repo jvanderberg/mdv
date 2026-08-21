@@ -85,9 +85,11 @@ test("filters the table of contents inside the inspector", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("opens a folder by preferring README and seeding sibling history", async ({ page }) => {
+test("opens a folder selection by preferring README and seeding sibling history", async ({
+  page,
+}) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Folder" }).click();
+  await page.evaluate(async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path), [abs("test-docs")]);
 
   await expect(page.getByText("README.md").first()).toBeVisible();
   await expect(page.getByTestId("markdown-body").locator("h1")).toContainText("mdv Test Docs");
@@ -146,7 +148,7 @@ test("local links navigate inline while external links fall through", async ({ p
     "Markdown Syntax Tour",
   );
 
-  await page.getByRole("button", { name: "Back" }).click();
+  await page.keyboard.press("Meta+ArrowLeft");
   await expect(page.getByText("links.md").first()).toBeVisible();
   const edgeCasesLink = page.getByRole("link", { name: /Edge cases/ });
   await edgeCasesLink.dispatchEvent("click");
@@ -204,8 +206,9 @@ test("history search, document find, and bookmarks are automatic workflows", asy
   await page.getByPlaceholder("Find").fill("blockquote");
   await expect(page.getByText("block matches")).toBeVisible();
 
-  await page.getByRole("button", { name: "Bookmark" }).click();
+  await clickToolbarBookmark(page);
   await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
 });
 
@@ -223,8 +226,9 @@ test("history and bookmark deletion workflows update persisted lists", async ({ 
   await page.getByLabel("Remove README.md from history").click();
   await expect(page.getByTestId("history-list")).not.toContainText("README.md");
 
-  await page.getByRole("button", { name: "Bookmark" }).click();
+  await clickToolbarBookmark(page);
   await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
   await page.getByLabel("Remove bookmark Markdown Syntax Tour").click();
   await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks.");
@@ -250,8 +254,9 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
   await page.getByLabel("Reveal README.md in Finder").click();
   await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
-  await page.getByRole("button", { name: "Bookmark" }).click();
+  await clickToolbarBookmark(page);
   await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
   await page.getByLabel("Reveal bookmark Markdown Syntax Tour in Finder").click();
 
   const calls = await page.evaluate(() => window.__MDV_REVEAL_CALLS__ ?? []);
@@ -273,14 +278,88 @@ test("themes and zoom alter durable viewer state without layout collapse", async
     .locator(".markdown-body")
     .evaluate((el) => getComputedStyle(el).fontSize);
   await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Charcoal" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "charcoal");
-  await page.getByRole("button", { name: "Zoom in" }).click();
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("zoom-in"));
 
   const zoomedFontSize = await page
     .locator(".markdown-body")
     .evaluate((el) => getComputedStyle(el).fontSize);
   expect(parseFloat(zoomedFontSize)).toBeGreaterThan(parseFloat(initialFontSize));
   await expect(page.getByTestId("markdown-body")).toBeVisible();
+});
+
+test("native menu commands drive mdv workflows", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("toggle-sidebar"));
+  await expect(page.getByRole("complementary", { name: "History" })).toHaveCount(0);
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("toggle-sidebar"));
+  await expect(page.getByRole("complementary", { name: "History" })).toBeVisible();
+
+  const viewer = page.getByTestId("viewer-scroll");
+  await viewer.evaluate((element) => element.scrollTo(0, 420));
+  await page.waitForTimeout(150);
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("set-placeholder"));
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("jump-to-placeholder"));
+  await expect(page.getByText("toc-stress.md").first()).toBeVisible();
+  await expect
+    .poll(async () => viewer.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(300);
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("bookmark-current-spot"));
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("bookmark-slot-1"));
+  await expect(page.getByText("toc-stress.md").first()).toBeVisible();
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("edit-current-file"));
+  const editorCalls = await page.evaluate(() => window.__MDV_EDITOR_CALLS__ ?? []);
+  expect(editorCalls.at(-1)).toEqual({
+    editorPath: "/Applications/Visual Studio Code.app",
+    documentPath: abs("test-docs/toc-stress.md"),
+  });
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Command line tool installed");
+    await dialog.dismiss();
+  });
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("install-cli"));
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_CLI_INSTALL_CALLS__?.length ?? 0))
+    .toBe(1);
+});
+
+test("view menu toggles remote images and smart typography", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/images.md")],
+  );
+
+  await expect(page.getByText("Remote image blocked")).toBeVisible();
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("load-remote-images"));
+  await expect(page.getByText("Remote image blocked")).toHaveCount(0);
+  await expect(page.locator("img[src^='https://']")).toHaveCount(1);
+
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/prose.md")],
+  );
+  const smartHtml = await page.getByTestId("markdown-body").innerHTML();
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("smart-typography"));
+  const plainHtml = await page.getByTestId("markdown-body").innerHTML();
+  expect(plainHtml).not.toEqual(smartHtml);
 });
 
 test("restores the saved scroll position when reopening a document", async ({ page }) => {
@@ -323,6 +402,10 @@ test("visual shell stays readable without clipped chrome", async ({ page }, test
     [abs("test-docs/README.md")],
   );
   await ensureInspector(page);
+  await expect(page.getByRole("button", { name: "Back" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Forward" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Folder" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Zoom in" })).toHaveCount(0);
 
   const metrics = await page.evaluate(() => {
     const header = document.querySelector("header");
@@ -400,8 +483,11 @@ async function installMockApi(page: Page) {
       >();
       let dropHandler: ((paths: string[]) => void | Promise<void>) | undefined;
       let openHandler: ((paths: string[]) => void | Promise<void>) | undefined;
+      let menuHandler: ((command: string) => void | Promise<void>) | undefined;
       const pendingDrops: string[][] = [];
       const pendingOpenRequests: string[][] = [];
+      const editorCalls: Array<{ editorPath: string; documentPath: string }> = [];
+      const cliInstallCalls: string[] = [];
       const bookmarks: Array<{
         id: number;
         path: string;
@@ -420,6 +506,16 @@ async function installMockApi(page: Page) {
         async openDirectory() {
           return Object.keys(directories)[0] ?? null;
         },
+        async chooseEditor() {
+          return "/Applications/Visual Studio Code.app";
+        },
+        async openInEditor(_editorPath: string, _documentPath: string) {
+          editorCalls.push({ editorPath: _editorPath, documentPath: _documentPath });
+        },
+        async installCli() {
+          cliInstallCalls.push("install");
+          return "Command line tool installed";
+        },
         async subscribeToFileDrops(onDrop) {
           dropHandler = onDrop;
           for (const paths of pendingDrops.splice(0, pendingDrops.length)) {
@@ -436,6 +532,18 @@ async function installMockApi(page: Page) {
           }
           return () => {
             if (openHandler === onOpen) openHandler = undefined;
+          };
+        },
+        async subscribeToMenuCommands(onCommand) {
+          menuHandler = onCommand;
+          const listener = (event: Event) => {
+            const command = (event as CustomEvent<string>).detail;
+            void onCommand(command);
+          };
+          window.addEventListener("mdv:test-menu-command", listener);
+          return () => {
+            window.removeEventListener("mdv:test-menu-command", listener);
+            if (menuHandler === onCommand) menuHandler = undefined;
           };
         },
         async takePendingOpenPaths() {
@@ -550,8 +658,13 @@ async function installMockApi(page: Page) {
         if (openHandler) await openHandler(paths);
         else pendingOpenRequests.push(paths);
       };
+      window.__MDV_MENU_COMMAND__ = async (command: string) => {
+        if (menuHandler) await menuHandler(command);
+      };
       window.__MDV_EXTERNAL_CALLS__ = externalCalls;
       window.__MDV_REVEAL_CALLS__ = revealCalls;
+      window.__MDV_EDITOR_CALLS__ = editorCalls;
+      window.__MDV_CLI_INSTALL_CALLS__ = cliInstallCalls;
     },
     { directories, docs, imagePaths },
   );
@@ -566,6 +679,17 @@ async function ensureInspector(page: Page) {
   ) {
     await page.getByRole("button", { name: "Table of contents" }).click();
   }
+}
+
+async function ensureBookmarksExpanded(page: Page) {
+  const button = page.getByRole("button", { name: "Bookmarks" });
+  if ((await button.getAttribute("aria-expanded")) !== "true") {
+    await button.click();
+  }
+}
+
+async function clickToolbarBookmark(page: Page) {
+  await page.getByTestId("app-toolbar").getByRole("button", { name: "Bookmark" }).click();
 }
 
 function abs(path: string) {
