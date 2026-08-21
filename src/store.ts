@@ -358,12 +358,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async addBookmarkAtCurrentSpot() {
-    const { activeBlockIndex, api, blocks, document, findMatches, toc } = get();
+    const { activeBlockIndex, api, blocks, document, toc } = get();
     if (!document) return;
-    const blockIndex = findMatches[0] ?? activeBlockIndex;
+    const blockIndex = activeBlockIndex;
     const bookmark = await api.addBookmark({
       path: document.path,
-      title: toc[0]?.text ?? document.filename,
+      title: titleForBlock(toc, blockIndex, document.filename),
       blockIndex,
       blockFingerprint: bookmarkFingerprint(blocks[blockIndex] ?? ""),
     });

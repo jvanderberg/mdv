@@ -506,6 +506,9 @@ test("bookmarks and scroll persistence use the top visible rendered block", asyn
     .locator("[data-mdv-block-index='6']")
     .evaluate((element) => element.scrollIntoView({ block: "start" }));
   await page.waitForTimeout(180);
+  await viewer.click();
+  await page.keyboard.press("Meta+F");
+  await page.getByPlaceholder("Find").fill("case-insensitive");
   await clickToolbarBookmark(page);
   const bookmarkIndex = await page.evaluate(() => window.__MDV_BOOKMARKS__?.[0]?.block_index);
   expect(bookmarkIndex).toBe(6);
