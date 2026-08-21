@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 
 const root = new URL("..", import.meta.url).pathname;
 const out = process.env.MDV_TAURI_CAPTURE ?? `${root}parity-artifacts/tauri/tauri-window.png`;
-const doc = process.env.MDV_CAPTURE_DOC ?? `${root}test-docs/syntax.md`;
+const doc = process.env.MDV_CAPTURE_DOC ?? `${root}test-docs/README.md`;
 const url = process.env.MDV_TAURI_URL ?? "http://127.0.0.1:1420/";
 
 const server = spawn("npm", ["run", "dev"], {
