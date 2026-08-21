@@ -1,5 +1,6 @@
 import {
   type DragEventHandler,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -1016,6 +1017,7 @@ function highlightInlineFindMatches(root: Element, query: string) {
 
 function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
   const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [menu, setMenu] = useState<{ bookmarkId: number; x: number; y: number } | null>(null);
   const activeBookmarkId = useAppStore((state) => state.activeBookmarkId);
   const activeBlockIndex = useAppStore((state) => state.activeBlockIndex);
   const clearPlaceholder = useAppStore((state) => state.clearPlaceholder);
@@ -1026,6 +1028,23 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
   const reorderBookmarks = useAppStore((state) => state.reorderBookmarks);
   const revealPath = useAppStore((state) => state.revealPath);
   const removeBookmark = useAppStore((state) => state.removeBookmark);
+  const moveBookmark = (bookmarkId: number, destination: "up" | "down" | "top" | "bottom") => {
+    const ids = bookmarks.map((bookmark) => bookmark.id);
+    const index = ids.indexOf(bookmarkId);
+    if (index < 0) return;
+    const [id] = ids.splice(index, 1);
+    const targetIndex =
+      destination === "up"
+        ? Math.max(0, index - 1)
+        : destination === "down"
+          ? Math.min(ids.length, index + 1)
+          : destination === "top"
+            ? 0
+            : ids.length;
+    ids.splice(targetIndex, 0, id);
+    setMenu(null);
+    void reorderBookmarks(ids);
+  };
   if (bookmarks.length === 0 && !placeholder) {
     return (
       <div className="grid min-h-28 place-items-center px-2 py-5 text-center text-[var(--muted)]">
@@ -1100,6 +1119,10 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
             ids.splice(targetIndex, 0, sourceId);
             void reorderBookmarks(ids);
           }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setMenu({ bookmarkId: bookmark.id, x: event.clientX, y: event.clientY });
+          }}
           onReveal={bookmark.file_exists ? () => void revealPath(bookmark.path) : undefined}
           onRemove={() => void removeBookmark(bookmark.id)}
           onClick={() => {
@@ -1107,7 +1130,84 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
           }}
         />
       ))}
+      {menu ? (
+        <BookmarkContextMenu
+          bookmarks={bookmarks}
+          menu={menu}
+          onClose={() => setMenu(null)}
+          onMove={moveBookmark}
+        />
+      ) : null}
     </>
+  );
+}
+
+function BookmarkContextMenu({
+  bookmarks,
+  menu,
+  onClose,
+  onMove,
+}: {
+  bookmarks: Bookmark[];
+  menu: { bookmarkId: number; x: number; y: number };
+  onClose: () => void;
+  onMove: (bookmarkId: number, destination: "up" | "down" | "top" | "bottom") => void;
+}) {
+  useEffect(() => {
+    window.addEventListener("pointerdown", onClose);
+    window.addEventListener("keydown", onClose);
+    return () => {
+      window.removeEventListener("pointerdown", onClose);
+      window.removeEventListener("keydown", onClose);
+    };
+  }, [onClose]);
+  const index = bookmarks.findIndex((bookmark) => bookmark.id === menu.bookmarkId);
+  const atTop = index <= 0;
+  const atBottom = index < 0 || index >= bookmarks.length - 1;
+  const left = Math.min(menu.x, window.innerWidth - 156);
+  const top = Math.min(menu.y, window.innerHeight - 128);
+  return (
+    <div
+      className="fixed z-50 min-w-36 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
+      role="menu"
+      style={{ left, top }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <MenuButton disabled={atTop} onClick={() => onMove(menu.bookmarkId, "up")}>
+        Move Up
+      </MenuButton>
+      <MenuButton disabled={atBottom} onClick={() => onMove(menu.bookmarkId, "down")}>
+        Move Down
+      </MenuButton>
+      <MenuButton disabled={atTop} onClick={() => onMove(menu.bookmarkId, "top")}>
+        Move to Top
+      </MenuButton>
+      <MenuButton disabled={atBottom} onClick={() => onMove(menu.bookmarkId, "bottom")}>
+        Move to Bottom
+      </MenuButton>
+    </div>
+  );
+}
+
+function MenuButton({
+  children,
+  disabled,
+  onClick,
+}: {
+  children: ReactNode;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="block w-full px-3 py-1.5 text-left disabled:text-[color-mix(in_srgb,var(--muted)_55%,transparent)] enabled:hover:bg-[var(--panel-strong)]"
+      disabled={disabled}
+      role="menuitem"
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1149,6 +1249,7 @@ function DocumentRow({
   iconName = "docText",
   muted = false,
   onClick,
+  onContextMenu,
   onDragEnd,
   onDragOver,
   onDragStart,
@@ -1168,6 +1269,7 @@ function DocumentRow({
   iconName?: IconName;
   muted?: boolean;
   onClick: () => void;
+  onContextMenu?: (event: ReactMouseEvent<HTMLLIElement>) => void;
   onDragEnd?: DragEventHandler<HTMLLIElement>;
   onDragOver?: DragEventHandler<HTMLLIElement>;
   onDragStart?: DragEventHandler<HTMLLIElement>;
@@ -1199,6 +1301,7 @@ function DocumentRow({
       onDragOver={onDragOver}
       onDragStart={onDragStart}
       onDrop={onDrop}
+      onContextMenu={onContextMenu}
     >
       <span className="mdv-row-icon">
         <Icon name={iconName} />

@@ -420,6 +420,14 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
   await bookmarkRows.nth(1).dragTo(bookmarkRows.nth(0));
   await expect(bookmarkRows.first()).toContainText("Markdown Syntax Tour");
 
+  await bookmarkRows.first().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move to Bottom" }).click();
+  await expect(bookmarkRows.first()).toContainText("mdv Test Docs");
+
+  await bookmarkRows.nth(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Move to Top" }).click();
+  await expect(bookmarkRows.first()).toContainText("Markdown Syntax Tour");
+
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("bookmark-slot-1"));
   await expect(page.getByText("syntax.md").first()).toBeVisible();
 });
