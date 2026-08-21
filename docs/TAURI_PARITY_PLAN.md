@@ -629,7 +629,7 @@ Goal: match the reading experience.
   typography tokens.
 - Done: Add system theme mode with light/dark CSS resolution.
 - Done: Add persistent theme menu/selector for the full Swift catalog.
-- Add zoom keyboard shortcuts, reset, and HUD.
+- Done: Add zoom keyboard shortcuts, reset, and HUD.
 - Done: Add smart typography toggle and theme opt-outs.
 - Done: Bundle/load web font equivalents for Alegreya, Besley, OpenDyslexic.
 - Done: Implement Standard Erin font fallback where possible.

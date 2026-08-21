@@ -38,6 +38,9 @@ type IconName =
   | "xmark";
 
 export function App() {
+  const [zoomHudVisible, setZoomHudVisible] = useState(false);
+  const zoomHudTimerRef = useRef<number | undefined>(undefined);
+  const previousZoomRef = useRef<number | null>(null);
   const theme = useAppStore((state) => state.theme);
   const zoom = useAppStore((state) => state.zoom);
   const api = useAppStore((state) => state.api);
@@ -68,6 +71,42 @@ export function App() {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.setProperty("--zoom", String(zoom));
   }, [theme, zoom]);
+
+  useEffect(() => {
+    if (previousZoomRef.current === null) {
+      previousZoomRef.current = zoom;
+      return;
+    }
+    if (previousZoomRef.current === zoom) return;
+    previousZoomRef.current = zoom;
+    setZoomHudVisible(true);
+    if (zoomHudTimerRef.current !== undefined) window.clearTimeout(zoomHudTimerRef.current);
+    zoomHudTimerRef.current = window.setTimeout(() => setZoomHudVisible(false), 900);
+  }, [zoom]);
+
+  useEffect(
+    () => () => {
+      if (zoomHudTimerRef.current !== undefined) window.clearTimeout(zoomHudTimerRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      if (event.key === "=" || event.key === "+") {
+        event.preventDefault();
+        zoomIn();
+        return;
+      }
+      if (event.key === "-") {
+        event.preventDefault();
+        zoomOut();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [zoomIn, zoomOut]);
 
   useEffect(() => {
     void refreshLists();
@@ -267,7 +306,7 @@ export function App() {
   ]);
 
   return (
-    <main className="grid h-screen overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg)] text-[var(--chrome-text)]">
+    <main className="relative grid h-screen overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg)] text-[var(--chrome-text)]">
       <TopBar />
       <div
         className={`grid min-h-0 grid-cols-1 ${
@@ -280,7 +319,16 @@ export function App() {
         <Viewer />
         <Inspector />
       </div>
+      {zoomHudVisible ? <ZoomHud zoom={zoom} /> : null}
     </main>
+  );
+}
+
+function ZoomHud({ zoom }: { zoom: number }) {
+  return (
+    <div className="mdv-zoom-hud" aria-live="polite" data-testid="zoom-hud">
+      {Math.round(zoom * 100)}%
+    </div>
   );
 }
 

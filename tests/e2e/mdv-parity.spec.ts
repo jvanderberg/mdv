@@ -654,13 +654,16 @@ test("themes and zoom alter durable viewer state without layout collapse", async
   await page.getByRole("button", { name: "Theme" }).click();
   await page.getByRole("menuitemradio", { name: "Charcoal" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "charcoal");
-  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("zoom-in"));
+  await page.keyboard.press("Meta+=");
+  await expect(page.getByTestId("zoom-hud")).toHaveText("110%");
 
   const zoomedFontSize = await page
     .locator(".markdown-body")
     .evaluate((el) => getComputedStyle(el).fontSize);
   expect(parseFloat(zoomedFontSize)).toBeGreaterThan(parseFloat(initialFontSize));
   await expect(page.getByTestId("markdown-body")).toBeVisible();
+  await page.keyboard.press("Meta+-");
+  await expect(page.getByTestId("zoom-hud")).toHaveText("100%");
 });
 
 test("theme menu exposes the full Swift mdv catalog", async ({ page }) => {

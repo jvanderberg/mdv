@@ -642,6 +642,34 @@ button {
   height: 13px;
 }
 
+.mdv-zoom-hud {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 60;
+  transform: translate(-50%, -50%);
+  border: 0.5px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+  color: var(--text);
+  padding: 18px 28px;
+  font-weight: 600;
+  font-size: 36px;
+  font-family: ui-rounded, "SF Pro Rounded", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme="charcoal"] .mdv-zoom-hud,
+:root[data-theme="solarium-moonlight"] .mdv-zoom-hud,
+:root[data-theme="phosphor"] .mdv-zoom-hud,
+:root[data-theme="twilight"] .mdv-zoom-hud,
+:root[data-theme="standard-erin-dark"] .mdv-zoom-hud {
+  box-shadow: 0 4px 14px rgb(0 0 0 / 45%);
+}
+
 @media (max-width: 640px) {
   .mdv-icon-button {
     width: 24px;
