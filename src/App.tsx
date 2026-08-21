@@ -683,9 +683,9 @@ function Inspector() {
           <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
-      <div className="border-[var(--border)] border-t p-4" data-testid="bookmarks">
+      <div className="border-[var(--border)] border-t" data-testid="bookmarks">
         <button
-          className="mb-0 flex w-full items-center gap-2 text-left"
+          className="flex h-8 w-full items-center gap-1.5 px-3.5 py-2 text-left"
           type="button"
           aria-expanded={bookmarksExpanded}
           onClick={() =>
@@ -695,11 +695,18 @@ function Inspector() {
             })
           }
         >
-          <Icon name={bookmarksExpanded ? "chevronDown" : "chevronRight"} />
+          <span className="grid w-2.5 place-items-center text-[var(--muted)]">
+            <Icon name={bookmarksExpanded ? "chevronDown" : "chevronRight"} />
+          </span>
           <PanelHeading>Bookmarks</PanelHeading>
+          {bookmarks.length > 0 ? (
+            <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--chrome-text)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--muted)] leading-none">
+              {bookmarks.length}
+            </span>
+          ) : null}
         </button>
         {bookmarksExpanded ? (
-          <div className="mt-3 grid gap-0.5">
+          <div className="grid gap-0.5 px-2 pb-3">
             <BookmarkRows bookmarks={bookmarks} />
           </div>
         ) : null}
@@ -719,6 +726,8 @@ function HistoryRows({ history }: { history: HistoryEntry[] }) {
       path={entry.path}
       title={entry.filename}
       subtitle={entry.path}
+      subtitleMode="head"
+      variant="history"
       revealLabel={`Reveal ${entry.filename} in Finder`}
       removeLabel={`Remove ${entry.filename} from history`}
       onReveal={() => void revealPath(entry.path)}
@@ -737,6 +746,7 @@ function SearchHits({ hits }: { hits: SearchHit[] }) {
       path={hit.path}
       title={hit.filename}
       subtitle={hit.snippet}
+      variant="search"
       revealLabel={`Reveal ${hit.filename} in Finder`}
       onReveal={() => void revealPath(hit.path)}
       onClick={() => void openDocument(hit.path)}
@@ -748,14 +758,31 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
   const openDocument = useAppStore((state) => state.openDocument);
   const revealPath = useAppStore((state) => state.revealPath);
   const removeBookmark = useAppStore((state) => state.removeBookmark);
-  if (bookmarks.length === 0) return <Muted>No bookmarks.</Muted>;
+  if (bookmarks.length === 0) {
+    return (
+      <div className="grid min-h-28 place-items-center px-2 py-5 text-center text-[var(--muted)]">
+        <div className="grid justify-items-center gap-1.5">
+          <span className="text-[color-mix(in_srgb,var(--muted)_46%,transparent)]">
+            <Icon name="bookmark" />
+          </span>
+          <div className="text-[12px]">No bookmarks</div>
+          <div className="text-[10px] text-[color-mix(in_srgb,var(--muted)_78%,transparent)]">
+            Press <kbd className="mdv-keycap">⌘</kbd> <kbd className="mdv-keycap">D</kbd> at a spot
+            in any file
+          </div>
+        </div>
+      </div>
+    );
+  }
   return bookmarks.map((bookmark) => (
     <DocumentRow
       key={bookmark.id}
       path={bookmark.path}
       title={bookmark.title}
-      subtitle={bookmark.path}
+      subtitle={filenameForPath(bookmark.path)}
       muted={!bookmark.file_exists}
+      variant="bookmark"
+      iconName={bookmark.file_exists ? "bookmarkFill" : "docText"}
       revealLabel={`Reveal bookmark ${bookmark.title} in Finder`}
       removeLabel={`Remove bookmark ${bookmark.title}`}
       onReveal={() => void revealPath(bookmark.path)}
@@ -788,6 +815,7 @@ function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[]
 }
 
 function DocumentRow({
+  iconName = "docText",
   muted = false,
   onClick,
   onReveal,
@@ -796,8 +824,11 @@ function DocumentRow({
   removeLabel,
   path,
   subtitle,
+  subtitleMode = "tail",
   title,
+  variant = "history",
 }: {
+  iconName?: IconName;
   muted?: boolean;
   onClick: () => void;
   onReveal?: () => void;
@@ -806,31 +837,40 @@ function DocumentRow({
   removeLabel?: string;
   path: string;
   subtitle: string;
+  subtitleMode?: "head" | "tail";
   title: string;
+  variant?: "history" | "search" | "bookmark";
 }) {
   const currentPath = useAppStore((state) => state.document?.path);
   const selected = currentPath === path;
   return (
     <div
-      className={`group grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md ${
+      className={`mdv-document-row group grid grid-cols-[16px_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-[5px] px-2 ${
         selected
           ? "bg-[color-mix(in_srgb,var(--chrome-text)_12%,transparent)]"
           : "hover:bg-[var(--panel-strong)]"
-      } ${muted ? "opacity-55" : ""}`}
+      } ${muted ? "opacity-60" : ""}`}
+      data-row-variant={variant}
     >
-      <Icon name="docText" />
-      <button
-        className="grid min-w-0 gap-0.5 px-2.5 py-2 text-left"
-        type="button"
-        onClick={onClick}
-      >
-        <strong className="text-[var(--chrome-text)]">{title}</strong>
-        <span className="truncate text-[var(--muted)] text-xs">{subtitle}</span>
+      <span className="mdv-row-icon">
+        <Icon name={iconName} />
+      </span>
+      <button className="grid min-w-0 gap-px py-1 text-left" type="button" onClick={onClick}>
+        <span className="truncate text-[13px] text-[var(--chrome-text)] leading-[16px]">
+          {title}
+        </span>
+        <span
+          className={`truncate text-[var(--muted)] leading-[13px] ${
+            variant === "bookmark" ? "text-[10px]" : "text-[11px]"
+          } ${subtitleMode === "head" ? "mdv-truncate-head" : ""}`}
+        >
+          {subtitle}
+        </span>
       </button>
       {onReveal ? (
         <button
           aria-label={revealLabel}
-          className="mr-1 rounded px-2 py-1 text-[var(--muted)] text-xs opacity-0 hover:bg-[var(--bg)] hover:text-[var(--text)] group-hover:opacity-100"
+          className="rounded px-1.5 py-1 text-[10px] text-[var(--muted)] opacity-0 hover:bg-[var(--bg)] hover:text-[var(--text)] group-hover:opacity-100"
           type="button"
           onClick={onReveal}
         >
@@ -840,7 +880,7 @@ function DocumentRow({
       {onRemove ? (
         <button
           aria-label={removeLabel}
-          className="mr-1 rounded px-2 py-1 text-[var(--muted)] opacity-0 hover:bg-[var(--bg)] hover:text-[var(--text)] group-hover:opacity-100"
+          className="rounded px-1 py-1 text-[var(--muted)] opacity-0 hover:bg-[var(--bg)] hover:text-[var(--text)] group-hover:opacity-100"
           type="button"
           onClick={onRemove}
         >

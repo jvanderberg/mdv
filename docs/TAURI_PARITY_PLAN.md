@@ -40,8 +40,6 @@ Current high-priority exact-parity gaps from the latest captures:
 
 - Remove native-capture compositing artifacts or isolate document-rendering
   comparisons so black outline artifacts do not mask real drift.
-- Match native history row density, document icon tint, selected-row radius, and
-  path truncation.
 - Match inspector typography/spacing and collapsed Bookmarks placement.
 - Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
   native toolbar strategy if web SVG parity remains visibly off.
@@ -61,6 +59,11 @@ Recently completed exact-parity slices:
   screen-capture fallback. The app writes its own AppKit PNG capture when
   `MDV_INSTRUMENT_TAURI_CAPTURE` is set, and the default Tauri window uses light
   native chrome so the titlebar matches the Swift capture gate.
+- History/search/bookmark rows now use Swift-sized row typography, 16 pt icon
+  slots, 5 px selected-row radius, history head truncation, filename-only
+  bookmark subtitles, Swift-like bookmark empty-state copy, and a count badge.
+  Covered by the Playwright parity test `sidebar and bookmark rows preserve
+  Swift visual density`.
 
 ## Current Tauri Baseline
 

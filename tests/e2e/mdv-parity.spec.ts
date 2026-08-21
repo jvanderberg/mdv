@@ -232,6 +232,37 @@ test("history search, document find, and bookmarks are automatic workflows", asy
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
 });
 
+test("sidebar and bookmark rows preserve Swift visual density", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([first, second]) => {
+      await window.__MDV_OPEN_DOCUMENT__?.(first);
+      await window.__MDV_OPEN_DOCUMENT__?.(second);
+    },
+    [abs("test-docs/README.md"), abs("test-docs/syntax.md")],
+  );
+
+  const historyRow = page.locator(".mdv-document-row[data-row-variant='history']").first();
+  await expect(historyRow).toBeVisible();
+  await expect(historyRow.locator(".mdv-row-icon .mdv-symbol")).toHaveCSS("width", "13px");
+  await expect(historyRow).toHaveCSS("border-radius", "5px");
+  await expect(historyRow.locator("button span").first()).toHaveCSS("font-size", "13px");
+  await expect(historyRow.locator(".mdv-truncate-head").first()).toHaveCSS("direction", "rtl");
+
+  await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
+  await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks");
+  await expect(page.getByTestId("bookmarks")).toContainText("Press ⌘ D at a spot in any file");
+
+  await clickToolbarBookmark(page);
+  const bookmarkRow = page.locator(".mdv-document-row[data-row-variant='bookmark']").first();
+  await expect(bookmarkRow).toBeVisible();
+  await expect(bookmarkRow).toHaveCSS("min-height", "38px");
+  await expect(bookmarkRow.locator(".mdv-row-icon .mdv-symbol")).toHaveCSS("width", "11px");
+  await expect(bookmarkRow).toContainText("syntax.md");
+  await expect(bookmarkRow).not.toContainText(abs("test-docs/syntax.md"));
+});
+
 test("history and bookmark deletion workflows update persisted lists", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -251,7 +282,7 @@ test("history and bookmark deletion workflows update persisted lists", async ({ 
   await ensureBookmarksExpanded(page);
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
   await page.getByLabel("Remove bookmark Markdown Syntax Tour").click();
-  await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks.");
+  await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks");
 
   await page.getByRole("button", { name: "Search history" }).click();
   await page.getByRole("button", { name: "Clear" }).click();

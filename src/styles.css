@@ -148,6 +148,56 @@ button {
   stroke-width: 2.1;
 }
 
+.mdv-document-row {
+  min-height: 33px;
+}
+
+.mdv-document-row[data-row-variant="bookmark"] {
+  min-height: 38px;
+}
+
+.mdv-row-icon {
+  display: grid;
+  width: 16px;
+  min-width: 16px;
+  place-items: center;
+  color: var(--muted);
+}
+
+.mdv-row-icon .mdv-symbol {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.7;
+}
+
+.mdv-document-row[data-row-variant="bookmark"] .mdv-row-icon {
+  color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.mdv-document-row[data-row-variant="bookmark"] .mdv-row-icon .mdv-symbol {
+  width: 11px;
+  height: 11px;
+}
+
+.mdv-truncate-head {
+  direction: rtl;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.mdv-keycap {
+  display: inline-grid;
+  min-width: 12px;
+  height: 12px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--chrome-text) 4%, transparent);
+  padding: 0 2px;
+  font: inherit;
+  line-height: 1;
+}
+
 .mdv-find-input {
   width: 160px;
   border: 0;
