@@ -11,7 +11,7 @@ use std::{
 };
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    AppHandle, Emitter, Manager, State, Theme, WebviewWindow,
+    AppHandle, Emitter, Manager, State, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 use thiserror::Error;
 
@@ -480,6 +480,31 @@ fn file_signature(path: String) -> MdvResult<FileSignature> {
 }
 
 #[tauri::command]
+fn open_new_window(app: AppHandle, path: String) -> MdvResult<()> {
+    let path = validate_open_target(Path::new(&path))?;
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("mdv")
+        .to_string();
+    let label = format!("mdv-window-{}", now_millis());
+    let url = format!(
+        "index.html?mdvOpenPath={}",
+        percent_encode_component(&path.to_string_lossy())
+    );
+    let window = WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
+        .title(filename)
+        .inner_size(1080.0, 720.0)
+        .min_inner_size(760.0, 520.0)
+        .build()
+        .map_err(|error| MdvError::App(error.to_string()))?;
+    window
+        .set_theme(Some(Theme::Light))
+        .map_err(|error| MdvError::App(error.to_string()))?;
+    Ok(())
+}
+
+#[tauri::command]
 fn resolve_local_image(document_path: String, src: String) -> MdvResult<ResolvedLocalImage> {
     if has_external_scheme(&src) && !src.starts_with("file://") {
         return Err(MdvError::App(format!("Unsupported local image URL: {src}")));
@@ -904,6 +929,16 @@ where
         .collect()
 }
 
+fn validate_open_target(path: &Path) -> MdvResult<PathBuf> {
+    if !path.exists() {
+        return Err(MdvError::App("Selected file does not exist.".into()));
+    }
+    if path.is_dir() || is_supported_document(path) {
+        return Ok(path.to_path_buf());
+    }
+    Err(MdvError::App("Selected file is not a supported document.".into()))
+}
+
 fn queue_open_paths(app: &AppHandle, paths: Vec<String>) {
     if paths.is_empty() {
         return;
@@ -1158,6 +1193,25 @@ fn now_secs() -> i64 {
         .unwrap_or(0)
 }
 
+fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+fn percent_encode_component(value: &str) -> String {
+    value
+        .bytes()
+        .flat_map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                vec![byte as char]
+            }
+            _ => format!("%{byte:02X}").chars().collect(),
+        })
+        .collect()
+}
+
 fn file_mtime_secs(path: &Path) -> i64 {
     fs::metadata(path)
         .ok()
@@ -1213,6 +1267,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             load_markdown,
+            open_new_window,
             file_signature,
             resolve_local_image,
             list_history,
@@ -1306,6 +1361,29 @@ mod tests {
         assert_eq!(signature.path, doc.to_string_lossy());
         assert_eq!(signature.file_size, 6);
         assert!(signature.file_mtime_ms > 0);
+    }
+
+    #[test]
+    fn new_window_targets_accept_supported_files_and_directories() {
+        let temp = tempfile::tempdir().unwrap();
+        let doc = temp.path().join("guide.md");
+        let dir = temp.path().join("folder");
+        let image = temp.path().join("image.png");
+        fs::write(&doc, "# Guide").unwrap();
+        fs::create_dir(&dir).unwrap();
+        fs::write(&image, "not markdown").unwrap();
+
+        assert_eq!(validate_open_target(&doc).unwrap(), doc);
+        assert_eq!(validate_open_target(&dir).unwrap(), dir);
+        assert!(validate_open_target(&image).is_err());
+    }
+
+    #[test]
+    fn new_window_initial_path_is_url_encoded() {
+        assert_eq!(
+            percent_encode_component("/tmp/has spaces/quote#.md"),
+            "%2Ftmp%2Fhas%20spaces%2Fquote%23.md"
+        );
     }
 
     #[test]

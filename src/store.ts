@@ -55,6 +55,7 @@ export interface AppState {
   setApi: (api: MdvApi) => void;
   refreshLists: () => Promise<void>;
   chooseAndOpenDocument: () => Promise<void>;
+  chooseAndOpenDocumentInNewWindow: () => Promise<void>;
   chooseAndOpenDirectory: () => Promise<void>;
   chooseEditor: () => Promise<void>;
   editCurrentFile: () => Promise<void>;
@@ -152,6 +153,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   async chooseAndOpenDocument() {
     const selected = await get().api.openPath();
     if (selected) await get().openDocument(selected);
+  },
+
+  async chooseAndOpenDocumentInNewWindow() {
+    const selected = await get().api.openPath();
+    if (selected) await get().api.openPathInNewWindow(selected);
   },
 
   async chooseAndOpenDirectory() {

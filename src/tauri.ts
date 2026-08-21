@@ -15,6 +15,7 @@ import type {
 
 export interface MdvApi {
   openPath(): Promise<string | null>;
+  openPathInNewWindow(path: string): Promise<void>;
   openDirectory(): Promise<string | null>;
   chooseEditor(): Promise<string | null>;
   openInEditor(editorPath: string, documentPath: string): Promise<void>;
@@ -62,6 +63,9 @@ export const api: MdvApi = {
       filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "txt"] }],
     });
     return typeof selected === "string" ? selected : null;
+  },
+  openPathInNewWindow(path) {
+    return tauriInvoke("open_new_window", { path });
   },
   async openDirectory() {
     const selected = await open({

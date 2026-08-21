@@ -785,6 +785,24 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
     .toBe(1);
 });
 
+test("open in new window keeps the current document and delegates to native window creation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("open-new-window"));
+
+  await expect(page.getByText("toc-stress.md").first()).toBeVisible();
+  await expect(page.getByTestId("markdown-body").locator("h1")).toContainText("TOC Stress Test");
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_OPEN_NEW_WINDOW_CALLS__ ?? []))
+    .toEqual([abs("test-docs/README.md")]);
+});
+
 test("external file changes reload the current document without losing scroll", async ({
   page,
 }) => {
@@ -1098,6 +1116,7 @@ async function installMockApi(page: Page) {
       const pendingOpenRequests: string[][] = [];
       const editorCalls: Array<{ editorPath: string; documentPath: string }> = [];
       const cliInstallCalls: string[] = [];
+      const openNewWindowCalls: string[] = [];
       const bookmarks: Array<{
         id: number;
         path: string;
@@ -1128,6 +1147,9 @@ async function installMockApi(page: Page) {
       window.__MDV_TEST_API__ = {
         async openPath() {
           return Object.keys(docs)[0] ?? null;
+        },
+        async openPathInNewWindow(path: string) {
+          openNewWindowCalls.push(path);
         },
         async openDirectory() {
           return Object.keys(directories)[0] ?? null;
@@ -1318,6 +1340,7 @@ async function installMockApi(page: Page) {
       window.__MDV_REVEAL_CALLS__ = revealCalls;
       window.__MDV_EDITOR_CALLS__ = editorCalls;
       window.__MDV_CLI_INSTALL_CALLS__ = cliInstallCalls;
+      window.__MDV_OPEN_NEW_WINDOW_CALLS__ = openNewWindowCalls;
       window.__MDV_BOOKMARKS__ = bookmarks;
       window.__MDV_SCROLL_POSITIONS__ = scrollPositionSnapshot;
     },

@@ -21,6 +21,34 @@ describe("store persistence helpers", () => {
     expect(readStoredNumber("mdv.zoom", 1)).toBe(1.2);
   });
 
+  it("opens selected documents in a new native window without replacing state", async () => {
+    const { useAppStore } = await import("./store");
+    const opened: string[] = [];
+    useAppStore.setState({
+      document: {
+        path: "/current.md",
+        filename: "current.md",
+        content: "# Current",
+        file_mtime_ms: 1,
+        file_size: 9,
+      },
+      api: {
+        ...useAppStore.getState().api,
+        async openPath() {
+          return "/next.md";
+        },
+        async openPathInNewWindow(path: string) {
+          opened.push(path);
+        },
+      },
+    });
+
+    await useAppStore.getState().chooseAndOpenDocumentInNewWindow();
+
+    expect(opened).toEqual(["/next.md"]);
+    expect(useAppStore.getState().document?.path).toBe("/current.md");
+  });
+
   it("ignores stale global search results", async () => {
     const { useAppStore } = await import("./store");
     const slow = deferred<SearchHit[]>();

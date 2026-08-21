@@ -48,6 +48,9 @@ export function App() {
   const html = useAppStore((state) => state.html);
   const addBookmarkAtCurrentSpot = useAppStore((state) => state.addBookmarkAtCurrentSpot);
   const chooseAndOpenDocument = useAppStore((state) => state.chooseAndOpenDocument);
+  const chooseAndOpenDocumentInNewWindow = useAppStore(
+    (state) => state.chooseAndOpenDocumentInNewWindow,
+  );
   const chooseEditor = useAppStore((state) => state.chooseEditor);
   const editCurrentFile = useAppStore((state) => state.editCurrentFile);
   const forgetEditor = useAppStore((state) => state.forgetEditor);
@@ -112,6 +115,11 @@ export function App() {
   useEffect(() => {
     void refreshLists();
   }, [refreshLists]);
+
+  useEffect(() => {
+    const initialPath = new URLSearchParams(window.location.search).get("mdvOpenPath");
+    if (initialPath) void openFirstPath([initialPath]);
+  }, [openFirstPath]);
 
   useEffect(() => {
     if (!currentDocument) return;
@@ -235,8 +243,10 @@ export function App() {
             window.alert(await api.installCli());
             break;
           case "open":
-          case "open-new-window":
             await chooseAndOpenDocument();
+            break;
+          case "open-new-window":
+            await chooseAndOpenDocumentInNewWindow();
             break;
           case "edit-current-file":
             await editCurrentFile();
@@ -329,6 +339,7 @@ export function App() {
     addBookmarkAtCurrentSpot,
     api,
     chooseAndOpenDocument,
+    chooseAndOpenDocumentInNewWindow,
     chooseEditor,
     editCurrentFile,
     forgetEditor,

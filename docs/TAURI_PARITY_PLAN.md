@@ -43,6 +43,13 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- `Open in New Window...` now follows the Swift flow: it runs a separate file
+  picker, creates a new Tauri document window at Swift's default/minimum window
+  sizes, seeds only that window with the selected document, and leaves the
+  current window untouched. Covered by Rust target-validation/URL-encoding
+  tests, a store isolation test, a Tauri capability contract test, and the
+  Playwright parity test `open in new window keeps the current document and
+  delegates to native window creation`.
 - Active TOC heading tracking now follows the top visible rendered heading in the
   viewer and marks the matching inspector row with `aria-current="location"`.
   Covered by the Playwright parity test `tracks the active heading in the table
@@ -672,7 +679,7 @@ Goal: make the Tauri app replace the Swift app operationally.
 
 - Done: File associations for `.md`, `.markdown`, `.mdown`, `.mkd`, optionally `.txt`.
 - Done: App-opened file event handling.
-- New window support.
+- Done: New window support.
 - Done: Help document command.
 - Done: CLI installer equivalent or a Tauri-native CLI strategy.
 - Done: App icon and bundle metadata.
@@ -684,6 +691,7 @@ Tests:
 - Done: Scripted bundle metadata checks.
 - Done: CLI smoke test.
 - Done: App open event smoke test if automatable.
+- Done: New window menu smoke test with current-window isolation.
 
 ## Working Method
 

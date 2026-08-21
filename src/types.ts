@@ -68,6 +68,7 @@ declare global {
     __MDV_EXTERNAL_CALLS__?: string[];
     __MDV_MENU_COMMAND__?: (command: string) => Promise<void>;
     __MDV_OPEN_DOCUMENT__?: (path: string) => Promise<void>;
+    __MDV_OPEN_NEW_WINDOW_CALLS__?: string[];
     __MDV_REVEAL_CALLS__?: string[];
     __MDV_RESOLVE_BOOKMARK__?: (blocks: string[], index: number, fingerprint: string) => number;
     __MDV_SCROLL_POSITIONS__?: Record<string, ScrollPosition>;

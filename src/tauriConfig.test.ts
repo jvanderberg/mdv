@@ -17,6 +17,10 @@ interface TauriConfig {
   };
 }
 
+interface TauriCapability {
+  windows: string[];
+}
+
 describe("tauri bundle parity contract", () => {
   const config = JSON.parse(
     readFileSync(resolve(process.cwd(), "src-tauri/tauri.conf.json"), "utf8"),
@@ -38,5 +42,13 @@ describe("tauri bundle parity contract", () => {
         role: "Viewer",
       },
     ]);
+  });
+
+  it("allows commands from every mdv document window", () => {
+    const capability = JSON.parse(
+      readFileSync(resolve(process.cwd(), "src-tauri/capabilities/default.json"), "utf8"),
+    ) as TauriCapability;
+
+    expect(capability.windows).toEqual(["*"]);
   });
 });
