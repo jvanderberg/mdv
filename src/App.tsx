@@ -432,6 +432,7 @@ function Viewer() {
   const nextFindMatch = useAppStore((state) => state.nextFindMatch);
   const previousFindMatch = useAppStore((state) => state.previousFindMatch);
   const saveScrollPosition = useAppStore((state) => state.saveScrollPosition);
+  const setActiveTocHeadingId = useAppStore((state) => state.setActiveTocHeadingId);
   const setFindQuery = useAppStore((state) => state.setFindQuery);
   const setViewerScrollTop = useAppStore((state) => state.setViewerScrollTop);
   const handleMarkdownLink = (target: EventTarget | null): boolean => {
@@ -516,11 +517,13 @@ function Viewer() {
     if (!element) return;
     const onScroll = () => {
       setViewerScrollTop(element.scrollTop);
+      setActiveTocHeadingId(topVisibleHeadingId(element));
       scheduleScrollSave(element.scrollTop);
     };
     element.addEventListener("scroll", onScroll);
+    onScroll();
     return () => element.removeEventListener("scroll", onScroll);
-  }, [setViewerScrollTop]);
+  }, [html, setActiveTocHeadingId, setViewerScrollTop]);
 
   const scheduleScrollSave = (scrollTop: number) => {
     if (Date.now() < ignoreScrollUntilRef.current) return;
@@ -615,9 +618,12 @@ function Viewer() {
 }
 
 function Inspector() {
-  const [bookmarksExpanded, setBookmarksExpanded] = useState(false);
+  const [bookmarksExpanded, setBookmarksExpanded] = useState(
+    () => localStorage.getItem("mdv.bookmarksExpanded") !== "false",
+  );
   const [tocSearchVisible, setTocSearchVisible] = useState(false);
   const [tocSearchQuery, setTocSearchQuery] = useState("");
+  const activeTocHeadingId = useAppStore((state) => state.activeTocHeadingId);
   const inspectorVisible = useAppStore((state) => state.inspectorVisible);
   const toc = useAppStore((state) => state.toc);
   const bookmarks = useAppStore((state) => state.bookmarks);
@@ -656,7 +662,7 @@ function Inspector() {
           />
         ) : null}
         <nav className="mb-5 grid gap-0.5" data-testid="toc">
-          <TocRows toc={filteredToc} />
+          <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
       <div className="border-[var(--border)] border-t p-4" data-testid="bookmarks">
@@ -664,7 +670,12 @@ function Inspector() {
           className="mb-0 flex w-full items-center gap-2 text-left"
           type="button"
           aria-expanded={bookmarksExpanded}
-          onClick={() => setBookmarksExpanded((expanded) => !expanded)}
+          onClick={() =>
+            setBookmarksExpanded((expanded) => {
+              localStorage.setItem("mdv.bookmarksExpanded", String(!expanded));
+              return !expanded;
+            })
+          }
         >
           <Icon name={bookmarksExpanded ? "chevronDown" : "chevronRight"} />
           <PanelHeading>Bookmarks</PanelHeading>
@@ -736,15 +747,22 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
   ));
 }
 
-function TocRows({ toc }: { toc: TocHeading[] }) {
+function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[] }) {
+  const setActiveTocHeadingId = useAppStore((state) => state.setActiveTocHeadingId);
   if (toc.length === 0) return <Muted>No headings.</Muted>;
   return toc.map((heading) => (
     <button
       key={heading.id}
-      className="rounded-md px-2.5 py-2 text-left text-sm hover:bg-[var(--panel-strong)]"
+      className={`rounded-md px-2.5 py-2 text-left text-sm hover:bg-[var(--panel-strong)] ${
+        activeId === heading.id ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""
+      }`}
+      aria-current={activeId === heading.id ? "location" : undefined}
       style={{ paddingLeft: `${10 + Math.max(0, heading.level - 1) * 12}px` }}
       type="button"
-      onClick={() => document.getElementById(heading.id)?.scrollIntoView({ block: "start" })}
+      onClick={() => {
+        setActiveTocHeadingId(heading.id);
+        document.getElementById(heading.id)?.scrollIntoView({ block: "start" });
+      }}
     >
       {heading.text}
     </button>
@@ -882,4 +900,22 @@ function documentPlaceholder(label: string): HTMLSpanElement {
 
 function filenameForPath(path: string): string {
   return path.split("/").at(-1) ?? path;
+}
+
+function topVisibleHeadingId(scroller: HTMLElement): string | null {
+  const headings = Array.from(
+    scroller.querySelectorAll<HTMLElement>(
+      ".markdown-body h1[id], .markdown-body h2[id], .markdown-body h3[id], .markdown-body h4[id], .markdown-body h5[id], .markdown-body h6[id]",
+    ),
+  );
+  if (headings.length === 0) return null;
+
+  const scrollerTop = scroller.getBoundingClientRect().top;
+  const threshold = scrollerTop + 24;
+  let active = headings[0];
+  for (const heading of headings) {
+    if (heading.getBoundingClientRect().top > threshold) break;
+    active = heading;
+  }
+  return active.id;
 }

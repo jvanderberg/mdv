@@ -15,7 +15,7 @@
     "test:parity": "./scripts/parity.sh",
     "instrument:native": "./scripts/instrument-native-mdv.sh",
     "capture:native": "./scripts/instrument-native-mdv.sh",
-    "capture:tauri": "node scripts/capture-tauri.mjs",
+    "capture:tauri": "./scripts/instrument-tauri-mdv.sh",
     "compare:visual": "npm run capture:native && npm run capture:tauri && node scripts/compare-captures.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

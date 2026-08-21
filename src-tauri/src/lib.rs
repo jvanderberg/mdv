@@ -636,6 +636,9 @@ fn install_cli(app: AppHandle) -> MdvResult<String> {
 }
 
 fn app_db_path(app: &AppHandle) -> MdvResult<PathBuf> {
+    if let Ok(path) = env::var("MDV_TAURI_DB_PATH") {
+        return Ok(PathBuf::from(path));
+    }
     let dir = app
         .path()
         .app_data_dir()

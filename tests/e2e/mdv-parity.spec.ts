@@ -85,6 +85,26 @@ test("filters the table of contents inside the inspector", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("tracks the active heading in the table of contents", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+  await ensureInspector(page);
+
+  await page.getByTestId("viewer-scroll").evaluate((scroller) => {
+    const target = document.getElementById("active-block-tracking");
+    if (!target) throw new Error("missing active-block-tracking heading");
+    const scrollerRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    scroller.scrollTo(0, scroller.scrollTop + targetRect.top - scrollerRect.top - 12);
+  });
+  await expect(
+    page.getByTestId("toc").getByRole("button", { name: "Active-block tracking" }),
+  ).toHaveAttribute("aria-current", "location");
+});
+
 test("opens a folder selection by preferring README and seeding sibling history", async ({
   page,
 }) => {

@@ -1,11 +1,69 @@
-# Tauri Feature Parity Plan
+# Tauri Exact Parity Plan
 
 This is the working parity plan for porting the existing Swift/AppKit mdv app to
 Tauri + Rust + React. It is based on `README.md`, `mdv/Help.md`, `TYPOGRAPHY.md`,
 `plans/CODEVIEW.md`, and targeted inspection of the Swift source.
 
+The goal for this port is exact functional and visual parity with the Swift mdv
+macOS app. The Swift app is the source of truth for behavior, menu structure,
+toolbar contents, pane layout, visual styling, and packaging semantics. No
+feature, control, shortcut, menu item, or visual affordance should be invented in
+the Tauri app unless the plan first records an intentional divergence and the
+reason for it.
+
 The rule for this port: every feature gets an automated parity check before it is
-called done. Prefer narrow tests that describe the user workflow.
+called done. Prefer narrow tests that describe the user workflow. Visual parity
+must be checked with high-fidelity captures of the real Swift app and the real
+Tauri macOS app. Browser-only Playwright screenshots are allowed for renderer
+regression tests, but they are not sufficient evidence for titlebar, toolbar,
+menu, or native-window parity.
+
+## Exact Parity Gates
+
+Every completed slice must satisfy these gates:
+
+- Functional workflows pass through `npm run test:parity`.
+- The native menu surface matches `mdv/mdvApp.swift`; any menu item present in
+  Tauri must do real work or be absent.
+- The toolbar matches `mdv/ContentView.swift` exactly:
+  - Open.
+  - Edit.
+  - Theme menu.
+  - Bookmark.
+  - Inspector.
+  - No toolbar Back/Forward, Folder, or Zoom controls.
+- `npm run compare:visual` captures both real apps, not a browser stand-in for
+  Tauri, and compares the same fixture, window size, pane visibility, and theme.
+- Remaining visual drift must be written down before moving to another phase.
+
+Current high-priority exact-parity gaps from the latest captures:
+
+- Replace Chromium-based Tauri visual capture with actual Tauri macOS app
+  capture, so titlebar/traffic-light/toolbar parity is measured honestly.
+  Current status: `npm run capture:tauri` now launches the real bundled macOS app
+  and refuses to pass on browser or black full-screen fallback captures.
+  ScreenCaptureKit sees the Tauri window but returns
+  `SCStreamErrorDomain Code=-3811`, so this gate is intentionally failing until
+  the runner has a reliable app-level or permissioned window-capture path.
+- Remove native-capture compositing artifacts or isolate document-rendering
+  comparisons so black outline artifacts do not mask real drift.
+- Match native history row density, document icon tint, selected-row radius, and
+  path truncation.
+- Match inspector typography/spacing and collapsed Bookmarks placement.
+- Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
+  native toolbar strategy if web SVG parity remains visibly off.
+- Implement bookmark pane resizing, bookmark reorder/current state, and true
+  top-visible block tracking.
+
+Recently completed exact-parity slices:
+
+- Active TOC heading tracking now follows the top visible rendered heading in the
+  viewer and marks the matching inspector row with `aria-current="location"`.
+  Covered by the Playwright parity test `tracks the active heading in the table
+  of contents`.
+- The bookmarks section now defaults expanded and persists the user collapsed
+  state through `mdv.bookmarksExpanded`, matching the inspector's always-present
+  bookmarks-below-TOC structure more closely.
 
 ## Current Tauri Baseline
 

@@ -16,6 +16,7 @@ export interface AppState {
   html: string;
   blocks: string[];
   toc: TocHeading[];
+  activeTocHeadingId: string | null;
   history: HistoryEntry[];
   bookmarks: Bookmark[];
   globalHits: SearchHit[];
@@ -54,6 +55,7 @@ export interface AppState {
   searchHistory: (query: string) => Promise<void>;
   saveScrollPosition: (scrollTop: number) => Promise<void>;
   setViewerScrollTop: (scrollTop: number) => void;
+  setActiveTocHeadingId: (id: string | null) => void;
   consumePendingScrollTop: () => number | null;
   addBookmarkAtCurrentSpot: () => Promise<void>;
   openBookmarkSlot: (slot: number) => Promise<void>;
@@ -88,6 +90,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   html: "",
   blocks: [],
   toc: [],
+  activeTocHeadingId: null,
   history: [],
   bookmarks: [],
   globalHits: [],
@@ -168,6 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       html: rendered.html,
       blocks: rendered.blocks,
       toc: rendered.toc,
+      activeTocHeadingId: rendered.toc[0]?.id ?? null,
       findMatches,
       currentFindMatchIndex: 0,
       currentFragment: null,
@@ -288,6 +292,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setViewerScrollTop(scrollTop) {
     set({ viewerScrollTop: Math.max(0, scrollTop) });
+  },
+
+  setActiveTocHeadingId(id) {
+    if (get().activeTocHeadingId === id) return;
+    set({ activeTocHeadingId: id });
   },
 
   consumePendingScrollTop() {
@@ -445,6 +454,7 @@ function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get:
     html: rendered.html,
     blocks: rendered.blocks,
     toc: rendered.toc,
+    activeTocHeadingId: rendered.toc[0]?.id ?? null,
     findMatches: findBlockMatches(rendered.blocks, findQuery),
   });
 }
