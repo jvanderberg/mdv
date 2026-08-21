@@ -43,6 +43,11 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- The Tauri native menu now matches Swift mdv's custom command labels exactly,
+  including ellipsis and bookmark-slot dash punctuation, and has a source-level
+  contract test for every custom command id, label, shortcut, and renderer
+  dispatch path. Rendering fixture coverage now checks text extracted from the
+  rendered Markdown output rather than only checking source fixture content.
 - Every Swift mdv theme now has Playwright screenshot coverage across the
   existing desktop, WebKit, and mobile parity projects. The test cycles the full
   theme catalog, verifies the active theme state, and asserts the rendered

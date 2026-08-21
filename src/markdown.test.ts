@@ -31,6 +31,10 @@ describe("markdown parity contract", () => {
       expect(rendered.toc.length).toBeGreaterThanOrEqual(fixture.minHeadings);
       expect(rendered.html).toContain("<h1");
       expect(rendered.html).not.toContain("<script");
+      const text = renderedText(rendered.html);
+      for (const expectedText of fixture.renderedMustContain) {
+        expect(text).toContain(expectedText);
+      }
     });
   }
 
@@ -129,4 +133,18 @@ describe("markdown parity contract", () => {
 
 function readFixture(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
+}
+
+function renderedText(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
 }

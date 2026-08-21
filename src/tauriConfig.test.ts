@@ -74,4 +74,53 @@ describe("tauri bundle parity contract", () => {
     expect(workflow).toContain("releaseDraft: true");
     expect(workflow).toContain("uploadWorkflowArtifacts: true");
   });
+
+  it("keeps the Swift mdv custom menu command surface wired in Tauri", () => {
+    const rustSource = readFileSync(resolve(process.cwd(), "src-tauri/src/lib.rs"), "utf8");
+    const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+
+    const expectedItems = [
+      ["install-cli", "Install Command Line Tool…", null],
+      ["open", "Open…", "Cmd+O"],
+      ["open-new-window", "Open in New Window…", "Cmd+Shift+O"],
+      ["edit-current-file", "Edit Current File", "Cmd+E"],
+      ["choose-editor", "Choose Editor…", null],
+      ["forget-editor", "Forget Editor", null],
+      ["find", "Find…", "Cmd+F"],
+      ["search-history", "Search History…", "Cmd+Shift+F"],
+      ["back", "Back", "Cmd+Left"],
+      ["forward", "Forward", "Cmd+Right"],
+      ["toggle-sidebar", "Hide Sidebar", "Cmd+Ctrl+S"],
+      ["zoom-in", "Zoom In", "Cmd+="],
+      ["zoom-out", "Zoom Out", "Cmd+-"],
+      ["actual-size", "Actual Size", null],
+      ["smart-typography", "Smart Typography", null],
+      ["load-remote-images", "Load Remote Images", null],
+      ["bookmark-current-spot", "Bookmark Current Spot", "Cmd+D"],
+      ["set-placeholder", "Set Placeholder", "Cmd+Shift+0"],
+      ["jump-to-placeholder", "Jump to Placeholder", "Cmd+0"],
+      ["bookmark-slot-1", "Slot 1 — Empty", "Cmd+1"],
+      ["bookmark-slot-2", "Slot 2 — Empty", "Cmd+2"],
+      ["bookmark-slot-3", "Slot 3 — Empty", "Cmd+3"],
+      ["bookmark-slot-4", "Slot 4 — Empty", "Cmd+4"],
+      ["bookmark-slot-5", "Slot 5 — Empty", "Cmd+5"],
+      ["help", "mdv Help", "Cmd+?"],
+    ] as const;
+
+    for (const [id, label, shortcut] of expectedItems) {
+      expect(rustSource).toContain(`"${id}"`);
+      expect(rustSource).toContain(`"${label}"`);
+      if (shortcut) expect(rustSource).toContain(`"${shortcut}"`);
+      if (id.startsWith("bookmark-slot-")) {
+        expect(appSource).toContain('command.startsWith("bookmark-slot-")');
+        expect(appSource).toContain("openBookmarkSlot");
+      } else if (id !== "help") {
+        expect(appSource).toContain(`case "${id}"`);
+      }
+    }
+
+    expect(rustSource).not.toContain("Open...");
+    expect(rustSource).not.toContain("Choose Editor...");
+    expect(rustSource).not.toContain("Slot 1 - Empty");
+  });
 });

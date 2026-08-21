@@ -3,12 +3,14 @@
     {
       "path": "test-docs/README.md",
       "mustContain": ["# mdv Test Docs", "## What's here", "## Quick checklist"],
+      "renderedMustContain": ["mdv Test Docs", "What’s here", "Quick checklist"],
       "minHeadings": 3,
       "minBlocks": 8
     },
     {
       "path": "test-docs/syntax.md",
       "mustContain": ["# Markdown Syntax Tour", "Task lists", "Footnotes"],
+      "renderedMustContain": ["Markdown Syntax Tour", "Task lists", "Footnotes"],
       "minHeadings": 8,
       "minBlocks": 20
     },
@@ -16,47 +18,55 @@
       "path": "test-docs/code-prompts.md",
       "minBlocks": 2,
       "minHeadings": 1,
-      "mustContain": ["Shell Prompt Copy", "pnpm install"]
+      "mustContain": ["Shell Prompt Copy", "pnpm install"],
+      "renderedMustContain": ["Shell Prompt Copy", "pnpm install"]
     },
     {
       "path": "test-docs/code-long-line.md",
       "minBlocks": 2,
       "minHeadings": 1,
-      "mustContain": ["Long Code Lines", "veryLongLine"]
+      "mustContain": ["Long Code Lines", "veryLongLine"],
+      "renderedMustContain": ["Long Code Lines", "veryLongLine"]
     },
     {
       "path": "test-docs/code.md",
       "mustContain": ["```rust", "```python", "```javascript"],
+      "renderedMustContain": ["Code Highlighting Tour", "Bash", "Rust", "Python", "JavaScript"],
       "minHeadings": 8,
       "minBlocks": 10
     },
     {
       "path": "test-docs/tables.md",
       "mustContain": ["|", "---"],
+      "renderedMustContain": ["Tables", "High Contrast", "Important point"],
       "minHeadings": 2,
       "minBlocks": 5
     },
     {
       "path": "test-docs/images.md",
       "mustContain": ["sample.png", "banner.png"],
+      "renderedMustContain": ["Images", "Relative path", "Missing reference"],
       "minHeadings": 2,
       "minBlocks": 5
     },
     {
       "path": "test-docs/links.md",
       "mustContain": ["http", "mailto", "#"],
+      "renderedMustContain": ["Link Behavior", "Markdown links", "External URLs"],
       "minHeadings": 2,
       "minBlocks": 5
     },
     {
       "path": "test-docs/toc-stress.md",
       "mustContain": ["#"],
+      "renderedMustContain": ["TOC Stress Test", "Palette catalogue", "Active-block tracking"],
       "minHeadings": 20,
       "minBlocks": 20
     },
     {
       "path": "test-docs/prose.md",
       "mustContain": ["#"],
+      "renderedMustContain": ["On Reading Long-Form", "Charcoal", "Sevilla"],
       "minHeadings": 1,
       "minBlocks": 8
     }
