@@ -654,9 +654,13 @@ fn open_in_editor(editor_path: String, document_path: String) -> MdvResult<()> {
 
     #[cfg(target_os = "macos")]
     {
-        Command::new("/usr/bin/open")
-            .arg("-a")
-            .arg(editor_path)
+        let mut command = Command::new("/usr/bin/open");
+        if let Some(bundle_id) = app_bundle_identifier(Path::new(&editor_path)) {
+            command.arg("-b").arg(bundle_id);
+        } else {
+            command.arg("-a").arg(editor_path);
+        }
+        command
             .arg(document_path)
             .spawn()
             .map_err(|error| MdvError::App(error.to_string()))?;
@@ -671,6 +675,25 @@ fn open_in_editor(editor_path: String, document_path: String) -> MdvResult<()> {
             .map_err(|error| MdvError::App(error.to_string()))?;
         Ok(())
     }
+}
+
+#[cfg(target_os = "macos")]
+fn app_bundle_identifier(app_path: &Path) -> Option<String> {
+    let plist = app_path.join("Contents").join("Info.plist");
+    if !plist.is_file() {
+        return None;
+    }
+    let output = Command::new("/usr/libexec/PlistBuddy")
+        .arg("-c")
+        .arg("Print :CFBundleIdentifier")
+        .arg(plist)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let bundle_id = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    (!bundle_id.is_empty()).then_some(bundle_id)
 }
 
 #[tauri::command]

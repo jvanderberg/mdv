@@ -4,6 +4,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -99,6 +100,19 @@ export function App() {
     window.addEventListener("pointermove", onSidebarResizePointerMove);
     window.addEventListener("pointerup", stopSidebarResize);
   };
+
+  const openIncomingPaths = useCallback(
+    async (paths: string[]) => {
+      const path = paths[0];
+      if (!path) return;
+      if (path === currentDocument?.path) {
+        await reloadCurrentDocumentFromDisk();
+        return;
+      }
+      await openFirstPath(paths);
+    },
+    [currentDocument?.path, openFirstPath, reloadCurrentDocumentFromDisk],
+  );
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -212,7 +226,7 @@ export function App() {
 
     void api
       .subscribeToFileDrops(async (paths) => {
-        await openFirstPath(paths);
+        await openIncomingPaths(paths);
       })
       .then((nextUnsubscribe) => {
         if (cancelled) nextUnsubscribe();
@@ -223,7 +237,7 @@ export function App() {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [api, openFirstPath]);
+  }, [api, openIncomingPaths]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -245,10 +259,10 @@ export function App() {
     let unsubscribe: (() => void) | undefined;
     let cancelled = false;
 
-    void api.takePendingOpenPaths().then((paths) => openFirstPath(paths));
+    void api.takePendingOpenPaths().then((paths) => openIncomingPaths(paths));
     void api
       .subscribeToOpenRequests(async (paths) => {
-        await openFirstPath(paths);
+        await openIncomingPaths(paths);
       })
       .then((nextUnsubscribe) => {
         if (cancelled) nextUnsubscribe();
@@ -259,7 +273,7 @@ export function App() {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [api, openFirstPath]);
+  }, [api, openIncomingPaths]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -692,21 +706,26 @@ function Sidebar() {
           data-testid="history-search-pod"
         >
           <div className="grid gap-1.5">
-            <input
-              id="history-search"
-              ref={searchInputRef}
-              className="mdv-input mdv-pane-input"
-              placeholder="Search history"
-              value={searchQuery}
-              onChange={(event) => {
-                const query = event.currentTarget.value;
-                setSearchQuery(query);
-                void searchHistory(query);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") closeHistorySearch();
-              }}
-            />
+            <label className="mdv-pane-search">
+              <Icon name="magnifyingglass" />
+              <input
+                id="history-search"
+                ref={searchInputRef}
+                placeholder="Search history"
+                value={searchQuery}
+                onChange={(event) => {
+                  const query = event.currentTarget.value;
+                  setSearchQuery(query);
+                  void searchHistory(query);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") closeHistorySearch();
+                }}
+              />
+              <button type="button" aria-label="Close history search" onClick={closeHistorySearch}>
+                <Icon name="xmark" />
+              </button>
+            </label>
             <button
               className="justify-self-start rounded px-1 py-0.5 text-[10px] normal-case hover:bg-[var(--panel-strong)]"
               type="button"
@@ -1394,7 +1413,7 @@ function Inspector() {
           data-testid="bookmarks-collapse"
         >
           <div
-            className="grid overflow-auto px-2 pb-3"
+            className="mdv-bookmarks-content grid px-2 pb-3"
             data-testid="bookmarks-content"
             style={{ height: `${bookmarksHeight}px` }}
           >

@@ -43,6 +43,25 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Editing the current file now keeps the document open in mdv and reloads editor
+  saves in place. Same-file native open/drop events are treated as reloads
+  instead of fresh opens, and the macOS editor launcher prefers the selected
+  app's bundle identifier before falling back to `open -a`. Covered by the
+  Playwright workflow `editing the current file keeps it open and reloads editor
+  saves`.
+- The history search pod now uses the compact mdv search-field treatment with
+  SF-symbol search/close affordances and theme-aware dark-mode background/border
+  colors. Covered by the cross-browser Playwright test `history search field
+  stays compact and legible in dark themes`.
+- The bookmarks pane now keeps its inner list scrollable when saved bookmarks
+  overflow the pane height, including through the animated collapse wrapper.
+  Covered by the Playwright test `bookmarks pane scrolls when saved bookmarks
+  overflow`.
+- Latest parity gate run: `npm run lint`, `npm test`, `npm run build`,
+  `cargo test --manifest-path src-tauri/Cargo.toml`, `npm run test:parity`
+  (170 passed, 1 skipped), and `npm run compare:visual` all pass. The visual
+  comparator captured both real apps and reported three-panel structure for both
+  native and Tauri captures.
 - The `test-docs/tables.md` corpus now has explicit rendering parity coverage
   for table count, alignment, header/body styling, inline formatting inside
   cells, and horizontal overflow for the wide-table case. Tables now render with

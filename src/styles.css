@@ -610,28 +610,34 @@ button {
   pointer-events: none;
 }
 
+.mdv-pane-search,
 .mdv-inspector-search {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--chrome-text) 9%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--chrome-text) 6%, transparent);
+  background: color-mix(in srgb, var(--bg) 82%, var(--chrome-text) 5%);
   padding: 5px 8px;
   color: var(--muted);
 }
 
+.mdv-pane-search:focus-within,
 .mdv-inspector-search:focus-within {
   outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  background: color-mix(in srgb, var(--chrome-text) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--bg) 74%, var(--chrome-text) 9%);
 }
 
+.mdv-pane-search .mdv-symbol,
 .mdv-inspector-search .mdv-symbol {
   width: 11px;
   height: 11px;
   stroke-width: 1.9;
 }
 
+.mdv-pane-search input,
 .mdv-inspector-search input {
   min-width: 0;
   border: 0;
@@ -642,6 +648,7 @@ button {
   font-size: 12px;
 }
 
+.mdv-pane-search button,
 .mdv-inspector-search button {
   display: grid;
   width: 14px;
@@ -651,6 +658,12 @@ button {
   background: transparent;
   color: var(--muted);
   padding: 0;
+}
+
+.mdv-bookmarks-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .mdv-toc-row {

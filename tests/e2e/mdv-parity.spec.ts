@@ -459,6 +459,44 @@ test("history search, document find, and bookmarks are automatic workflows", asy
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
 });
 
+test("history search field stays compact and legible in dark themes", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([first, second]) => {
+      await window.__MDV_OPEN_DOCUMENT__?.(first);
+      await window.__MDV_OPEN_DOCUMENT__?.(second);
+    },
+    [abs("test-docs/README.md"), abs("test-docs/syntax.md")],
+  );
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Charcoal" }).click();
+  await page.getByRole("button", { name: "Search history" }).click();
+
+  const field = page.locator(".mdv-pane-search");
+  await expect(field).toBeVisible();
+  await expect(field).toHaveCSS("border-radius", "6px");
+  await expect(field.locator("input")).toHaveCSS("font-size", "12px");
+  await expect(field.locator(".mdv-symbol").first()).toHaveAttribute(
+    "data-sf-symbol",
+    "magnifyingglass",
+  );
+  await expect(field.getByRole("button", { name: "Close history search" })).toBeVisible();
+
+  const colors = await field.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const input = element.querySelector("input");
+    return {
+      background: style.backgroundColor,
+      border: style.borderTopColor,
+      input: input ? getComputedStyle(input).color : "",
+    };
+  });
+  expect(colors.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(colors.border).not.toBe("rgba(0, 0, 0, 0)");
+  expect(colors.input).not.toBe(colors.background);
+});
+
 test("document find highlights blocks and scrolls current match by rendered block", async ({
   page,
 }) => {
@@ -716,6 +754,50 @@ test("bookmarks pane resizes and persists its height", async ({ page }) => {
     Number(localStorage.getItem("mdv.bookmarksHeight")),
   );
   expect(storedHeight).toBeGreaterThan(initialHeight + 2);
+});
+
+test("bookmarks pane scrolls when saved bookmarks overflow", async ({ page }) => {
+  await page.goto("/");
+  const path = abs("test-docs/README.md");
+  await page.evaluate(
+    ([documentPath]) => {
+      localStorage.setItem("mdv.bookmarksHeight", "120");
+      const bookmarks = window.__MDV_BOOKMARKS__;
+      if (!bookmarks) return;
+      bookmarks.splice(
+        0,
+        bookmarks.length,
+        ...Array.from({ length: 18 }, (_, index) => ({
+          id: index + 1,
+          path: documentPath,
+          title: `Saved place ${index + 1}`,
+          sort_order: index,
+          created_at: index + 1,
+          block_index: 0,
+          block_fingerprint: "",
+          file_exists: true,
+        })),
+      );
+    },
+    [path],
+  );
+  await page.evaluate(
+    async ([documentPath]) => window.__MDV_OPEN_DOCUMENT__?.(documentPath),
+    [path],
+  );
+  await ensureBookmarksExpanded(page);
+
+  const content = page.getByTestId("bookmarks-content");
+  await expect(content.getByRole("button", { name: "Saved place 1 README.md" })).toBeVisible();
+  expect(await content.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+    true,
+  );
+  await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(async () => content.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
 });
 
 test("bookmarks and scroll persistence use the top visible rendered block", async ({ page }) => {
@@ -1141,6 +1223,50 @@ test("external file changes reload the current document without losing scroll", 
   await expect
     .poll(async () => viewer.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(before - 40);
+});
+
+test("editing the current file keeps it open and reloads editor saves", async ({ page }) => {
+  await page.goto("/");
+  const path = abs("test-docs/README.md");
+  await page.evaluate(
+    async ([documentPath]) => window.__MDV_OPEN_DOCUMENT__?.(documentPath),
+    [path],
+  );
+
+  await expect(page.getByText("README.md").first()).toBeVisible();
+  await expect(page.getByTestId("markdown-body").locator("h1")).toContainText("mdv Test Docs");
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("edit-current-file"));
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_EDITOR_CALLS__ ?? []))
+    .toContainEqual({
+      editorPath: "/Applications/Visual Studio Code.app",
+      documentPath: path,
+    });
+  await expect(page.getByText("README.md").first()).toBeVisible();
+  await expect(page.getByTestId("markdown-body").locator("h1")).toContainText("mdv Test Docs");
+
+  await page.evaluate(
+    ([documentPath]) => {
+      window.__MDV_REWRITE_DOCUMENT__?.(
+        documentPath,
+        "# README Edited In Place\n\nThe external editor save reloaded inside mdv.",
+      );
+    },
+    [path],
+  );
+  await page.evaluate(
+    async ([documentPath]) => window.__MDV_OPEN_PATHS__?.([documentPath]),
+    [path],
+  );
+
+  await expect(page.getByText("README.md").first()).toBeVisible();
+  await expect(page.getByTestId("markdown-body").locator("h1")).toContainText(
+    "README Edited In Place",
+  );
+  await expect(page.getByTestId("markdown-body")).toContainText(
+    "external editor save reloaded inside mdv",
+  );
 });
 
 test("view menu toggles remote images and smart typography", async ({ page }) => {
