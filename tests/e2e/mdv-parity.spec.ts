@@ -1359,6 +1359,74 @@ test("every Swift mdv theme renders visible document content", async ({ page }) 
   }
 });
 
+test("charcoal theme keeps document and chrome text readable", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/prose.md")],
+  );
+  await ensureInspector(page);
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Charcoal" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "charcoal");
+
+  const contrast = await page.evaluate(() => {
+    const parseRgb = (value: string) => {
+      const color = value.trim();
+      const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (rgbMatch) {
+        return [Number(rgbMatch[1]), Number(rgbMatch[2]), Number(rgbMatch[3])] as const;
+      }
+      const hexMatch = color.match(/^#([0-9a-f]{6})$/i);
+      if (hexMatch) {
+        const hex = hexMatch[1];
+        return [
+          Number.parseInt(hex.slice(0, 2), 16),
+          Number.parseInt(hex.slice(2, 4), 16),
+          Number.parseInt(hex.slice(4, 6), 16),
+        ] as const;
+      }
+      throw new Error(`Unable to parse color: ${value}`);
+    };
+    const luminance = ([r, g, b]: readonly [number, number, number]) => {
+      const channels = [r, g, b].map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    const ratio = (foreground: string, background: string) => {
+      const lighter = Math.max(luminance(parseRgb(foreground)), luminance(parseRgb(background)));
+      const darker = Math.min(luminance(parseRgb(foreground)), luminance(parseRgb(background)));
+      return (lighter + 0.05) / (darker + 0.05);
+    };
+    const root = getComputedStyle(document.documentElement);
+    const markdownElement = document.querySelector("[data-testid='markdown-body']");
+    const sidebarRowElement = document.querySelector(
+      "[data-testid='history-list'] .mdv-document-row",
+    );
+    const tocRowElement = document.querySelector("[data-testid='toc'] button");
+    if (!markdownElement || !sidebarRowElement || !tocRowElement) {
+      throw new Error("Expected Charcoal contrast targets to be rendered");
+    }
+    const markdown = getComputedStyle(markdownElement);
+    const sidebarRow = getComputedStyle(sidebarRowElement);
+    const tocRow = getComputedStyle(tocRowElement);
+    return {
+      chrome: ratio(sidebarRow.color, root.getPropertyValue("--panel")),
+      document: ratio(markdown.color, root.getPropertyValue("--bg")),
+      muted: ratio(root.getPropertyValue("--muted"), root.getPropertyValue("--panel")),
+      toc: ratio(tocRow.color, root.getPropertyValue("--panel")),
+    };
+  });
+
+  expect(contrast.document).toBeGreaterThanOrEqual(4.5);
+  expect(contrast.chrome).toBeGreaterThanOrEqual(4.5);
+  expect(contrast.toc).toBeGreaterThanOrEqual(4.5);
+  expect(contrast.muted).toBeGreaterThanOrEqual(3);
+});
+
 test("theme typography follows Swift smart punctuation and weight rules", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

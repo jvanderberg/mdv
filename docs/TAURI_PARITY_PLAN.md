@@ -43,6 +43,12 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Charcoal now sets a readable chrome text token instead of inheriting the light
+  theme's near-black `--chrome-text`, and the theme suite now checks computed
+  document, sidebar, TOC, and muted-text contrast under Charcoal. Bookmark drag
+  overlay drop animation is disabled so the dragged row does not perform the
+  default library fly-to/fly-back motion on release; sortable row movement uses a
+  short 120ms ease-out transform.
 - Bookmark drag-and-drop now uses `@dnd-kit` sortable rows instead of the prior
   hand-rolled pointer reorder path. Dragging shows a real drag overlay item,
   target rows expose an accent drop-location indicator, the existing row button

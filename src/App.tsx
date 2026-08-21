@@ -1828,7 +1828,7 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
             />
           ))}
         </SortableContext>
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeDragBookmark ? (
             <DocumentRow
               bookmarkId={activeDragBookmark.id}
@@ -1950,12 +1950,16 @@ function SortableBookmarkRow({
   selected: boolean;
   showDropIndicator: boolean;
 }) {
-  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
+  const { attributes, isDragging, listeners, setNodeRef, transform } = useSortable({
     id: bookmark.id,
+    transition: {
+      duration: 120,
+      easing: "ease-out",
+    },
   });
   const style: CSSProperties = {
     transform: DndCss.Transform.toString(transform),
-    transition,
+    transition: transform ? "transform 120ms ease-out" : undefined,
   };
 
   return (
