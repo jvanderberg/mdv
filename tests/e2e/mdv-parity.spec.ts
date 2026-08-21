@@ -139,6 +139,26 @@ test("table of contents clicks participate in back and forward navigation", asyn
   );
 });
 
+test("clicking a heading copies that source markdown section", async ({ page }) => {
+  await mockClipboard(page);
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  const heading = page.getByRole("heading", { name: "What’s here" });
+  await heading.click();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_CLIPBOARD__ ?? ""))
+    .toContain("## What's here");
+  const copied = await page.evaluate(() => window.__MDV_CLIPBOARD__ ?? "");
+  expect(copied).toContain("[syntax.md](syntax.md)");
+  expect(copied).not.toContain("## Quick checklist");
+  await expect(heading).toHaveClass(/mdv-heading-copy-flash/);
+});
+
 test("search pods and bookmarks collapse with animated mdv panels", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -511,6 +531,25 @@ test("renders table corpus with readable mdv table styling", async ({ page }) =>
 
   const wide = tables.nth(5);
   expect(await wide.evaluate((table) => table.scrollWidth > table.clientWidth)).toBe(true);
+});
+
+test("renders thematic breaks with smart typography enabled", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/thematic-break.md")],
+  );
+
+  const body = page.getByTestId("markdown-body");
+  await expect(body.locator("hr")).toHaveCount(5);
+  await expect(
+    body.getByRole("heading", { level: 2, name: "This is a second-level heading" }),
+  ).toBeVisible();
+  await expect(body.locator("table")).toBeVisible();
+  const text = await body.innerText();
+  expect(text).toContain("word — word");
+  expect(text).toContain("2020–2025");
+  expect(text).toContain("--verbose");
 });
 
 test("history search, document find, and bookmarks are automatic workflows", async ({ page }) => {
@@ -930,6 +969,52 @@ test("bookmarks pane scrolls when saved bookmarks overflow", async ({ page }) =>
   await expect
     .poll(async () => content.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
+});
+
+test("shared bookmark changes refresh visible panes across windows", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_SHARED_STATE_SUBSCRIBED__ === true))
+    .toBe(true);
+
+  await expect(
+    page.getByTestId("bookmarks-content").getByText("Shared Window Bookmark"),
+  ).toHaveCount(0);
+  await page.evaluate(
+    async ([bookmarkPath, historyPath]) => {
+      window.__MDV_BOOKMARKS__?.push({
+        id: 99,
+        path: bookmarkPath,
+        title: "Shared Window Bookmark",
+        sort_order: 0,
+        created_at: Date.now(),
+        block_index: 1,
+        block_fingerprint: "",
+        file_exists: true,
+      });
+      window.__MDV_HISTORY__?.unshift({
+        path: historyPath,
+        filename: "links.md",
+        added_at: Date.now(),
+      });
+      await window.__MDV_SHARED_STATE_CHANGED__?.();
+    },
+    [abs("test-docs/README.md"), abs("test-docs/links.md")],
+  );
+
+  await expect(
+    page.getByTestId("bookmarks-content").getByText("Shared Window Bookmark"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("history-list").getByRole("button", { name: /links\.md/ }),
+  ).toBeVisible();
+  await expect(page.getByText("README.md").first()).toBeVisible();
 });
 
 test("bookmarks and scroll persistence use the top visible rendered block", async ({
@@ -1760,6 +1845,7 @@ async function installMockApi(page: Page) {
       let dropHandler: ((paths: string[]) => void | Promise<void>) | undefined;
       let openHandler: ((paths: string[]) => void | Promise<void>) | undefined;
       let menuHandler: ((command: string) => void | Promise<void>) | undefined;
+      let sharedStateHandler: (() => void | Promise<void>) | undefined;
       const nativeMenuStates: NonNullable<Window["__MDV_NATIVE_MENU_STATES__"]> = [];
       const pendingDrops: string[][] = [];
       const pendingOpenRequests: string[][] = [];
@@ -1843,6 +1929,16 @@ async function installMockApi(page: Page) {
             if (menuHandler === onCommand) menuHandler = undefined;
           };
         },
+        async subscribeToSharedStateChanges(onChange) {
+          sharedStateHandler = onChange;
+          window.__MDV_SHARED_STATE_SUBSCRIBED__ = true;
+          return () => {
+            if (sharedStateHandler === onChange) {
+              sharedStateHandler = undefined;
+              window.__MDV_SHARED_STATE_SUBSCRIBED__ = false;
+            }
+          };
+        },
         async takePendingOpenPaths() {
           const paths = window.__MDV_PENDING_OPEN_PATHS__ ?? [];
           window.__MDV_PENDING_OPEN_PATHS__ = [];
@@ -1910,7 +2006,7 @@ async function installMockApi(page: Page) {
           scrollPositionSnapshot[path] = position;
         },
         async listHistory() {
-          return history;
+          return history.map((entry) => ({ ...entry }));
         },
         async removeHistory(path: string) {
           const existing = history.findIndex((entry) => entry.path === path);
@@ -1949,7 +2045,7 @@ async function installMockApi(page: Page) {
           return bookmark;
         },
         async listBookmarks() {
-          return bookmarks;
+          return bookmarks.map((bookmark) => ({ ...bookmark }));
         },
         async removeBookmark(id: number) {
           const existing = bookmarks.findIndex((bookmark) => bookmark.id === id);
@@ -1967,7 +2063,7 @@ async function installMockApi(page: Page) {
           bookmarks.forEach((bookmark, index) => {
             bookmark.sort_order = index;
           });
-          return bookmarks;
+          return bookmarks.map((bookmark) => ({ ...bookmark }));
         },
         async updateNativeMenuState(state) {
           nativeMenuStates.push(structuredClone(state));
@@ -1984,6 +2080,9 @@ async function installMockApi(page: Page) {
       window.__MDV_MENU_COMMAND__ = async (command: string) => {
         if (menuHandler) await menuHandler(command);
       };
+      window.__MDV_SHARED_STATE_CHANGED__ = async () => {
+        if (sharedStateHandler) await sharedStateHandler();
+      };
       window.__MDV_REWRITE_DOCUMENT__ = (path: string, content: string) => {
         const doc = docs[path];
         if (!doc) throw new Error(`missing fixture ${path}`);
@@ -1999,6 +2098,7 @@ async function installMockApi(page: Page) {
       window.__MDV_CLI_INSTALL_CALLS__ = cliInstallCalls;
       window.__MDV_OPEN_NEW_WINDOW_CALLS__ = openNewWindowCalls;
       window.__MDV_BOOKMARKS__ = bookmarks;
+      window.__MDV_HISTORY__ = history;
       window.__MDV_SCROLL_POSITIONS__ = scrollPositionSnapshot;
       window.__MDV_NATIVE_MENU_STATES__ = nativeMenuStates;
     },

@@ -110,6 +110,9 @@ try {
       async subscribeToMenuCommands() {
         return () => {};
       },
+      async subscribeToSharedStateChanges() {
+        return () => {};
+      },
       async takePendingOpenPaths() {
         return [];
       },

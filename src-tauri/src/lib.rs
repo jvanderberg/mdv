@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{
     env,
@@ -75,6 +75,9 @@ impl From<tauri::Error> for MdvError {
 
 type MdvResult<T> = Result<T, MdvError>;
 const SUPPORTED_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "txt"];
+const STORE_OPEN_FLAGS: OpenFlags = OpenFlags::SQLITE_OPEN_READ_WRITE
+    .union(OpenFlags::SQLITE_OPEN_CREATE)
+    .union(OpenFlags::SQLITE_OPEN_FULL_MUTEX);
 
 pub struct AppState {
     db: Mutex<Store>,
@@ -146,7 +149,7 @@ impl Store {
         if let Some(parent) = path.as_ref().parent() {
             fs::create_dir_all(parent)?;
         }
-        let conn = Connection::open(path)?;
+        let conn = Connection::open_with_flags(path, STORE_OPEN_FLAGS)?;
         let store = Self { conn };
         store.migrate()?;
         Ok(store)
@@ -483,7 +486,11 @@ impl Store {
 }
 
 #[tauri::command]
-fn load_markdown(path: String, state: State<'_, AppState>) -> MdvResult<LoadedDocument> {
+fn load_markdown(
+    app: AppHandle,
+    path: String,
+    state: State<'_, AppState>,
+) -> MdvResult<LoadedDocument> {
     let path_buf = PathBuf::from(path);
     let document_set = resolve_markdown_selection(&path_buf)?;
     let content = fs::read_to_string(&document_set.primary)?;
@@ -494,6 +501,7 @@ fn load_markdown(path: String, state: State<'_, AppState>) -> MdvResult<LoadedDo
         }
     }
     store.add_history(&document_set.primary, &content)?;
+    emit_shared_state_changed(&app, "history");
     let signature = file_signature_for_path(&document_set.primary)?;
     Ok(LoadedDocument {
         path: document_set.primary.to_string_lossy().into_owned(),
@@ -569,21 +577,25 @@ fn list_history(state: State<'_, AppState>) -> MdvResult<Vec<HistoryEntry>> {
 }
 
 #[tauri::command]
-fn remove_history(path: String, state: State<'_, AppState>) -> MdvResult<()> {
+fn remove_history(app: AppHandle, path: String, state: State<'_, AppState>) -> MdvResult<()> {
     state
         .db
         .lock()
         .map_err(|_| MdvError::App("database lock poisoned".into()))?
-        .remove_history(&path)
+        .remove_history(&path)?;
+    emit_shared_state_changed(&app, "history");
+    Ok(())
 }
 
 #[tauri::command]
-fn clear_history(state: State<'_, AppState>) -> MdvResult<()> {
+fn clear_history(app: AppHandle, state: State<'_, AppState>) -> MdvResult<()> {
     state
         .db
         .lock()
         .map_err(|_| MdvError::App("database lock poisoned".into()))?
-        .clear_history()
+        .clear_history()?;
+    emit_shared_state_changed(&app, "history");
+    Ok(())
 }
 
 #[tauri::command]
@@ -597,17 +609,20 @@ fn search_history(query: String, state: State<'_, AppState>) -> MdvResult<Vec<Se
 
 #[tauri::command]
 fn add_bookmark(
+    app: AppHandle,
     path: String,
     title: String,
     block_index: i64,
     block_fingerprint: String,
     state: State<'_, AppState>,
 ) -> MdvResult<Bookmark> {
-    state
+    let bookmark = state
         .db
         .lock()
         .map_err(|_| MdvError::App("database lock poisoned".into()))?
-        .add_bookmark(&path, &title, block_index, &block_fingerprint)
+        .add_bookmark(&path, &title, block_index, &block_fingerprint)?;
+    emit_shared_state_changed(&app, "bookmarks");
+    Ok(bookmark)
 }
 
 #[tauri::command]
@@ -620,21 +635,29 @@ fn list_bookmarks(state: State<'_, AppState>) -> MdvResult<Vec<Bookmark>> {
 }
 
 #[tauri::command]
-fn remove_bookmark(id: i64, state: State<'_, AppState>) -> MdvResult<()> {
+fn remove_bookmark(app: AppHandle, id: i64, state: State<'_, AppState>) -> MdvResult<()> {
     state
         .db
         .lock()
         .map_err(|_| MdvError::App("database lock poisoned".into()))?
-        .remove_bookmark(id)
+        .remove_bookmark(id)?;
+    emit_shared_state_changed(&app, "bookmarks");
+    Ok(())
 }
 
 #[tauri::command]
-fn reorder_bookmarks(ids: Vec<i64>, state: State<'_, AppState>) -> MdvResult<Vec<Bookmark>> {
-    state
+fn reorder_bookmarks(
+    app: AppHandle,
+    ids: Vec<i64>,
+    state: State<'_, AppState>,
+) -> MdvResult<Vec<Bookmark>> {
+    let bookmarks = state
         .db
         .lock()
         .map_err(|_| MdvError::App("database lock poisoned".into()))?
-        .reorder_bookmarks(ids)
+        .reorder_bookmarks(ids)?;
+    emit_shared_state_changed(&app, "bookmarks");
+    Ok(bookmarks)
 }
 
 #[tauri::command]
@@ -1100,6 +1123,10 @@ fn emit_menu_command(app: &AppHandle, command: &str) {
     let _ = app.emit("mdv://menu-command", command);
 }
 
+fn emit_shared_state_changed(app: &AppHandle, kind: &str) {
+    let _ = app.emit("mdv://shared-state-changed", kind);
+}
+
 fn cli_source_path(app: &AppHandle) -> Option<PathBuf> {
     resource_candidate(app, "mdv").or_else(|| env::current_dir().ok().map(|dir| dir.join("bin").join("mdv")).filter(|path| path.is_file()))
 }
@@ -1457,6 +1484,13 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn store_opens_sqlite_with_full_mutex() {
+        assert!(STORE_OPEN_FLAGS.contains(OpenFlags::SQLITE_OPEN_FULL_MUTEX));
+        assert!(STORE_OPEN_FLAGS.contains(OpenFlags::SQLITE_OPEN_READ_WRITE));
+        assert!(STORE_OPEN_FLAGS.contains(OpenFlags::SQLITE_OPEN_CREATE));
+    }
 
     #[test]
     fn history_is_recent_first_and_searchable() {

@@ -130,4 +130,16 @@ describe("tauri bundle parity contract", () => {
       /CheckMenuItem::with_id\(\s*app,\s*"load-remote-images",\s*"Load Remote Images",\s*true,\s*false,/s,
     );
   });
+
+  it("keeps upstream shared-state and SQLite concurrency contracts", () => {
+    const rustSource = readFileSync(resolve(process.cwd(), "src-tauri/src/lib.rs"), "utf8");
+    const tauriSource = readFileSync(resolve(process.cwd(), "src/tauri.ts"), "utf8");
+    const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+
+    expect(rustSource).toContain("SQLITE_OPEN_FULL_MUTEX");
+    expect(rustSource).toContain('app.emit("mdv://shared-state-changed"');
+    expect(tauriSource).toContain('listen<string>("mdv://shared-state-changed"');
+    expect(appSource).toContain("subscribeToSharedStateChanges");
+    expect(appSource).toContain("refreshLists");
+  });
 });

@@ -167,6 +167,25 @@ export function App() {
   }, [refreshLists]);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    void api
+      .subscribeToSharedStateChanges(async () => {
+        await refreshLists();
+      })
+      .then((nextUnsubscribe) => {
+        if (cancelled) nextUnsubscribe();
+        else unsubscribe = nextUnsubscribe;
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [api, refreshLists]);
+
+  useEffect(() => {
     void api.updateNativeMenuState?.({
       hasDocument: Boolean(currentDocument),
       hasEditor: Boolean(editorAppPath),
@@ -809,6 +828,7 @@ function Viewer() {
   const pendingBlockIndex = useAppStore((state) => state.pendingBlockIndex);
   const pendingScrollTop = useAppStore((state) => state.pendingScrollTop);
   const blocks = useAppStore((state) => state.blocks);
+  const toc = useAppStore((state) => state.toc);
   const consumePendingBlockIndex = useAppStore((state) => state.consumePendingBlockIndex);
   const consumePendingScrollTop = useAppStore((state) => state.consumePendingScrollTop);
   const api = useAppStore((state) => state.api);
@@ -844,6 +864,39 @@ function Viewer() {
       return true;
     }
     return false;
+  };
+  const handleHeadingCopy = (target: EventTarget | null): boolean => {
+    const heading = (target as HTMLElement | null)?.closest<HTMLElement>(
+      ".markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6",
+    );
+    if (!heading?.dataset.mdvBlockIndex) return false;
+    const blockIndex = Number(heading.dataset.mdvBlockIndex);
+    if (!Number.isFinite(blockIndex)) return false;
+    const level = Number(heading.tagName.slice(1));
+    const nextPeer = toc.find((entry) => entry.blockIndex > blockIndex && entry.level <= level);
+    const endIndex = nextPeer?.blockIndex ?? blocks.length;
+    const markdown = blocks.slice(blockIndex, endIndex).join("\n\n");
+    if (!markdown.trim()) return false;
+    void navigator.clipboard.writeText(markdown).catch(() => {});
+    flashCopiedSection(blockIndex, endIndex);
+    return true;
+  };
+  const flashCopiedSection = (startIndex: number, endIndex: number) => {
+    const root = markdownRef.current;
+    if (!root) return;
+    for (const block of root.querySelectorAll(".mdv-heading-copy-flash")) {
+      block.classList.remove("mdv-heading-copy-flash");
+    }
+    const flashed = Array.from(root.querySelectorAll<HTMLElement>("[data-mdv-block-index]")).filter(
+      (block) => {
+        const index = Number(block.dataset.mdvBlockIndex);
+        return Number.isFinite(index) && index >= startIndex && index < endIndex;
+      },
+    );
+    for (const block of flashed) block.classList.add("mdv-heading-copy-flash");
+    window.setTimeout(() => {
+      for (const block of flashed) block.classList.remove("mdv-heading-copy-flash");
+    }, 650);
   };
 
   useEffect(() => {
@@ -1087,7 +1140,11 @@ function Viewer() {
             event.preventDefault();
             return;
           }
-          if (handleMarkdownLink(event.target)) event.preventDefault();
+          if (handleMarkdownLink(event.target)) {
+            event.preventDefault();
+            return;
+          }
+          if (handleHeadingCopy(event.target)) event.preventDefault();
         }}
         onContextMenu={(event) => {
           const block = (event.target as HTMLElement | null)?.closest<HTMLElement>(

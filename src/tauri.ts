@@ -26,6 +26,7 @@ export interface MdvApi {
   subscribeToMenuCommands(
     onCommand: (command: string) => void | Promise<void>,
   ): Promise<() => void>;
+  subscribeToSharedStateChanges(onChange: () => void | Promise<void>): Promise<() => void>;
   takePendingOpenPaths(): Promise<string[]>;
   openExternalTarget(target: string): Promise<void>;
   revealPath(path: string): Promise<void>;
@@ -104,6 +105,11 @@ export const api: MdvApi = {
   async subscribeToMenuCommands(onCommand) {
     return listen<string>("mdv://menu-command", async (event) => {
       await onCommand(event.payload);
+    });
+  },
+  async subscribeToSharedStateChanges(onChange) {
+    return listen<string>("mdv://shared-state-changed", async () => {
+      await onChange();
     });
   },
   takePendingOpenPaths() {

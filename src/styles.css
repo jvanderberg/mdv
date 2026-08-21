@@ -820,6 +820,21 @@ button {
   font-size: var(--h3-size);
 }
 
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  cursor: pointer;
+}
+
+.markdown-body .mdv-heading-copy-flash {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 5px;
+  transition: background 140ms ease-out;
+}
+
 .markdown-body a {
   color: var(--accent);
 }

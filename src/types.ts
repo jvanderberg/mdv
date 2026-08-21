@@ -72,6 +72,7 @@ declare global {
     __MDV_CLI_INSTALL_CALLS__?: string[];
     __MDV_CLIPBOARD__?: string;
     __MDV_BOOKMARKS__?: Bookmark[];
+    __MDV_HISTORY__?: HistoryEntry[];
     __MDV_DROP_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_OPEN_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_PENDING_OPEN_PATHS__?: string[];
@@ -85,5 +86,7 @@ declare global {
     __MDV_RESOLVE_BOOKMARK__?: (blocks: string[], index: number, fingerprint: string) => number;
     __MDV_SCROLL_POSITIONS__?: Record<string, ScrollPosition>;
     __MDV_NATIVE_MENU_STATES__?: NativeMenuState[];
+    __MDV_SHARED_STATE_CHANGED__?: () => Promise<void>;
+    __MDV_SHARED_STATE_SUBSCRIBED__?: boolean;
   }
 }

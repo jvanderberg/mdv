@@ -84,6 +84,19 @@ describe("markdown parity contract", () => {
     expect(canInlineHighlightMarkdownBlock("![needle](image.png)")).toBe(false);
   });
 
+  it("keeps upstream smart-typography fixes for thematic breaks and tables", () => {
+    const html = renderMarkdown(readFixture("test-docs/thematic-break.md")).html;
+    const text = renderedText(html);
+
+    expect(html.match(/<hr\b/g)).toHaveLength(5);
+    expect(html).toContain("<h2");
+    expect(text).toContain("This is a second-level heading");
+    expect(text).toContain("word — word");
+    expect(text).toContain("2020–2025");
+    expect(text).toContain("--verbose");
+    expect(html).toMatch(/<table\b/);
+  });
+
   it("syntax fixture exercises every declared language", () => {
     const markdown = readFixture("test-docs/code.md");
     for (const language of manifest.features.codeLanguages) {

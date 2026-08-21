@@ -43,6 +43,19 @@
       "minBlocks": 5
     },
     {
+      "path": "test-docs/thematic-break.md",
+      "mustContain": ["---", "This is a second-level heading", "2020--2025"],
+      "renderedMustContain": [
+        "Thematic Breaks",
+        "This is a second-level heading",
+        "word — word",
+        "2020–2025",
+        "--verbose"
+      ],
+      "minHeadings": 2,
+      "minBlocks": 8
+    },
+    {
       "path": "test-docs/images.md",
       "mustContain": ["sample.png", "banner.png"],
       "renderedMustContain": ["Images", "Relative path", "HTML image tag", "Missing reference"],

@@ -38,15 +38,22 @@ Every completed slice must satisfy these gates:
 
 Current high-priority exact-parity gaps from the latest captures:
 
-- Multi-window behavior still needs shared-state broadcast coverage for history,
-  bookmarks, menu state, and per-window viewer state.
-- Closed upstream PR history still needs a PR-by-PR audit against the Tauri
-  port. Mermaid chart PRs are explicitly out of scope for this port.
-- Re-run native/Tauri captures after each remaining feature slice and record any
-  new visual drift before moving on.
+- None from the current parity gate. Re-run native/Tauri captures after each new
+  slice and record any new visual drift before moving on.
 
 Recently completed exact-parity slices:
 
+- Completed a PR-by-PR audit of the closed upstream `tqbf/mdv` PR history in
+  `docs/UPSTREAM_PR_PARITY_AUDIT.md`. Mermaid PRs #27 and #29 remain explicitly
+  ignored by request. The audit pass added SQLite `SQLITE_OPEN_FULLMUTEX`
+  parity, heading-click source-section copy, thematic-break smart-typography
+  regression coverage, and shared history/bookmark refresh events for
+  multi-window state.
+- Latest parity gate run: `npm run lint`, `npm test`, `npm run build`,
+  `cargo test --manifest-path src-tauri/Cargo.toml`, `CI=1 npm run
+  test:parity` (193 passed, 2 skipped), and `npm run compare:visual` all pass.
+  The visual comparator captured both real apps and reported three-panel
+  structure for both native and Tauri captures.
 - Removed the invented history-search `Clear` button; Swift exposes row removal
   through row actions, not a clear-history command inside the search pod.
 - TOC, search, bookmarks, right inspector, and left history sidebar collapse now
