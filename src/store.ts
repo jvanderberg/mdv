@@ -263,7 +263,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentFragment: target.fragment,
         forwardStack: [],
       }));
-      scrollToFragment(target.fragment);
       return;
     }
     if (target.kind === "document") {
@@ -274,7 +273,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       await get().openDocument(target.path);
       const { fragment } = target;
       set({ currentFragment: fragment });
-      if (fragment) queueMicrotask(() => scrollToFragment(fragment));
       return;
     }
     await get().api.openExternalTarget(target.href);
@@ -299,7 +297,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentFragment: fragment,
       pendingBlockIndex: fragment ? null : previous.blockIndex,
     });
-    if (fragment) queueMicrotask(() => scrollToFragment(fragment));
   },
 
   async navigateForward() {
@@ -321,7 +318,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentFragment: fragment,
       pendingBlockIndex: fragment ? null : next.blockIndex,
     });
-    if (fragment) queueMicrotask(() => scrollToFragment(fragment));
   },
 
   async revealPath(path) {
@@ -634,11 +630,6 @@ function snapshotFor(
 function titleForBlock(toc: TocHeading[], blockIndex: number, fallback: string) {
   const heading = [...toc].reverse().find((entry) => entry.blockIndex <= blockIndex);
   return heading?.text ?? fallback;
-}
-
-function scrollToFragment(fragment: string) {
-  const id = CSS.escape(fragment);
-  document.querySelector<HTMLElement>(`#${id}`)?.scrollIntoView({ block: "start" });
 }
 
 function hasExternalScheme(value: string): boolean {

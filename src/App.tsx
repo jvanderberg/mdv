@@ -683,6 +683,17 @@ function Viewer() {
   }, [consumePendingBlockIndex, document, pendingBlockIndex]);
 
   useEffect(() => {
+    if (!document || !currentFragment || !scrollRef.current) return;
+    ignoreScrollUntilRef.current = Date.now() + 250;
+    window.requestAnimationFrame(() => {
+      const target = scrollRef.current?.querySelector<HTMLElement>(
+        `#${CSS.escape(currentFragment)}`,
+      );
+      target?.scrollIntoView({ block: "start" });
+    });
+  }, [currentFragment, document, html]);
+
+  useEffect(() => {
     if (!document || !scrollRef.current) return;
     const images = Array.from(
       scrollRef.current.querySelectorAll<HTMLImageElement>("img[data-mdv-local-image]"),

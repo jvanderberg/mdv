@@ -27,10 +27,13 @@ Markdown link with a `.markdown` extension instead of `.md`:
   → falls through to the system handler since the file doesn't
   exist; macOS's "no application" dialog will appear.
 
+Cross-document heading fragment:
+
+- [Syntax escaping section](syntax.md#escaping)
+
 ## Same-document fragment
 
-These use heading-anchor syntax. Currently mdv passes them through
-to the default handler — fragment navigation isn't implemented yet.
+These use heading-anchor syntax and scroll inside the current document.
 
 - [Jump to "Edge cases" section](#edge-cases)
 - [Jump to "Markdown links" up top](#markdown-links-in-app-navigation)

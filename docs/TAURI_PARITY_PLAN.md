@@ -43,6 +43,10 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Cross-document fragment links now have browser-level parity coverage: clicking
+  `syntax.md#escaping` from the links fixture opens the target document, records
+  `data-current-fragment="escaping"`, and verifies the target heading is
+  scrolled into view.
 - The Tauri release pipeline now has a macOS GitHub Actions workflow that builds
   Apple Silicon and Intel DMGs with `tauri-apps/tauri-action@v1`, uploads draft
   release/workflow artifacts, and passes Apple certificate plus App Store
@@ -493,7 +497,7 @@ Tests:
   link fallthrough, Back button, `Cmd+Left`, `Cmd+Right`, and visible-block
   snapshot restoration.
 - Done: Playwright coverage for restoring scroll when reopening a document.
-- Add Playwright coverage for cross-document fragments.
+- Done: Playwright coverage for cross-document fragments.
 
 ### Phase 2.5 — TOC / Inspector
 

@@ -254,6 +254,41 @@ test("back and forward restore document snapshots by visible block", async ({ pa
   await expect(page.getByText("syntax.md").first()).toBeVisible();
 });
 
+test("cross-document fragments open the target document and scroll to the heading", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/links.md")],
+  );
+
+  await page.getByRole("link", { name: "Syntax escaping section" }).dispatchEvent("click");
+
+  await expect(page.getByText("syntax.md").first()).toBeVisible();
+  await expect(page.getByTestId("markdown-body")).toHaveAttribute(
+    "data-current-fragment",
+    "escaping",
+  );
+  await expect
+    .poll(async () =>
+      page.getByTestId("viewer-scroll").evaluate((scroller) => {
+        const target = document.getElementById("escaping");
+        if (!target) return { isVisible: false, scrollTop: 0 };
+        const scrollerRect = scroller.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        return {
+          isVisible: targetRect.bottom > scrollerRect.top && targetRect.top < scrollerRect.bottom,
+          scrollTop: scroller.scrollTop,
+        };
+      }),
+    )
+    .toMatchObject({ isVisible: true, scrollTop: expect.any(Number) });
+  await expect
+    .poll(async () => page.getByTestId("viewer-scroll").evaluate((scroller) => scroller.scrollTop))
+    .toBeGreaterThan(1000);
+});
+
 test("renders local and data images while blocking remote and missing images", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
