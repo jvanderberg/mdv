@@ -724,6 +724,37 @@ test("theme menu exposes the full Swift mdv catalog", async ({ page }) => {
   }
 });
 
+test("every Swift mdv theme renders visible document content", async ({ page }) => {
+  const expectedThemes = [
+    ["system", "System"],
+    ["high-contrast", "High Contrast"],
+    ["sevilla", "Sevilla"],
+    ["charcoal", "Charcoal"],
+    ["solarium-daylight", "Solarium Daylight"],
+    ["solarium-moonlight", "Solarium Moonlight"],
+    ["phosphor", "Phosphor"],
+    ["twilight", "Twilight"],
+    ["standard-erin-light", "Standard Erin Light"],
+    ["standard-erin-dark", "Standard Erin Dark"],
+  ] as const;
+
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/prose.md")],
+  );
+
+  for (const [id, label] of expectedThemes) {
+    await page.getByRole("button", { name: "Theme" }).click();
+    await page.getByRole("menuitemradio", { name: label }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", id);
+    await expect(page.getByTestId("markdown-body").locator("h1")).toBeVisible();
+
+    const screenshot = await page.getByTestId("markdown-body").screenshot();
+    expect(hasVisiblePixels(screenshot)).toBe(true);
+  }
+});
+
 test("theme typography follows Swift smart punctuation and weight rules", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

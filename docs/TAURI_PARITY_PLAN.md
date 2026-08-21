@@ -43,6 +43,10 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Every Swift mdv theme now has Playwright screenshot coverage across the
+  existing desktop, WebKit, and mobile parity projects. The test cycles the full
+  theme catalog, verifies the active theme state, and asserts the rendered
+  markdown capture is nonblank.
 - Theme resolution and smart-typography opt-outs now have direct unit coverage:
   stored Swift-era aliases (`paper`, `solarized`) normalize to the Tauri theme
   IDs, invalid stored values fall back to High Contrast, and Phosphor plus
@@ -664,8 +668,8 @@ Goal: match the reading experience.
 Tests:
 
 - Done: Unit tests for theme resolution and smart typography.
-- Playwright visual/screenshot assertions for every theme across desktop and
-  mobile.
+- Done: Playwright visual/screenshot assertions for every theme across desktop
+  and mobile.
 
 ### Phase 8 — External Editor And Live Reload
 
