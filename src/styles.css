@@ -393,6 +393,24 @@ button {
   color: inherit;
 }
 
+.mdv-app-root {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mdv-app-root input,
+.mdv-app-root textarea,
+.mdv-app-root [contenteditable="true"],
+.markdown-body {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.markdown-body :where(.mdv-viewer-chrome, .mdv-code-chrome, .mdv-context-menu, .mdv-copy-hud) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .mdv-app-shell {
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-columns: minmax(0, 1fr);

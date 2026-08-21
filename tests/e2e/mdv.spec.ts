@@ -254,6 +254,56 @@ test("right-clicking a markdown selection preserves the selected text", async ({
     .toEqual(selectedBeforeContextMenu);
 });
 
+test("document selection excludes application and viewer chrome", async ({ page, isMobile }) => {
+  await openApp(page);
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  const selectionMode = (selector: string) =>
+    page.locator(selector).evaluate((element) => {
+      const style = getComputedStyle(element);
+      return style.userSelect || style.webkitUserSelect;
+    });
+
+  await expect(selectionMode('[data-testid="markdown-body"]')).resolves.toBe("text");
+  await expect(selectionMode("main > header")).resolves.toBe("none");
+  await expect(selectionMode('[data-testid="history-panel"]')).resolves.toBe("none");
+  await ensureInspector(page);
+  await expect(selectionMode('[data-testid="inspector-panel"]')).resolves.toBe("none");
+
+  await page.keyboard.press("Meta+F");
+  await expect(selectionMode('[data-testid="document-find"]')).resolves.toBe("text");
+  await expect(
+    page
+      .getByTestId("document-find")
+      .locator("..")
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return style.userSelect || style.webkitUserSelect;
+      }),
+  ).resolves.toBe("none");
+
+  test.skip(isMobile, "Cross-pane mouse selection is a desktop interaction.");
+  const paragraph = page.getByTestId("markdown-body").locator("p").first();
+  const title = page.locator("main > header > div").first();
+  const paragraphBox = await paragraph.boundingBox();
+  const titleBox = await title.boundingBox();
+  expect(paragraphBox).not.toBeNull();
+  expect(titleBox).not.toBeNull();
+  if (!paragraphBox || !titleBox) return;
+
+  await page.mouse.move(paragraphBox.x + paragraphBox.width / 2, paragraphBox.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(titleBox.x + 8, titleBox.y + titleBox.height / 2, { steps: 12 });
+  await page.mouse.up();
+
+  const selection = await page.evaluate(() => window.getSelection()?.toString() ?? "");
+  expect(selection.trim().length).toBeGreaterThan(0);
+  expect(selection).not.toContain("README.md");
+});
+
 test("search pods and bookmarks collapse with animated mdv panels", async ({ page }) => {
   await openApp(page);
   await page.evaluate(

@@ -465,7 +465,7 @@ export function App() {
   ]);
 
   return (
-    <main className="relative grid h-screen overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg)] text-[var(--chrome-text)]">
+    <main className="mdv-app-root relative grid h-screen overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg)] text-[var(--chrome-text)]">
       <TopBar />
       <div
         className="mdv-app-shell grid min-h-0 transition-[grid-template-columns] duration-[220ms] ease-out"
@@ -1223,7 +1223,7 @@ function Viewer() {
         }}
       >
         {findVisible ? (
-          <div className="sticky top-3 z-10 float-right mb-2 ml-4 flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-[var(--muted)] text-xs shadow-sm">
+          <div className="mdv-viewer-chrome sticky top-3 z-10 float-right mb-2 ml-4 flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-[var(--muted)] text-xs shadow-sm">
             <Icon name="magnifyingglass" />
             <input
               className="mdv-find-input"
@@ -1271,7 +1271,7 @@ function Viewer() {
         {document ? (
           <>
             {findMatches.length > 0 ? (
-              <div className="float-right sticky top-20 rounded-full border border-[var(--border)] bg-[var(--panel)] px-2.5 py-1 text-[var(--muted)] text-xs">
+              <div className="mdv-viewer-chrome float-right sticky top-20 rounded-full border border-[var(--border)] bg-[var(--panel)] px-2.5 py-1 text-[var(--muted)] text-xs">
                 {findMatches.length} block matches
               </div>
             ) : null}
@@ -1406,7 +1406,7 @@ function MarkdownCopyMenu({
 
   return (
     <div
-      className="fixed z-50 min-w-44 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
+      className="mdv-viewer-chrome fixed z-50 min-w-44 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
       role="menu"
       style={{ left, top }}
       onPointerDown={(event) => event.stopPropagation()}
