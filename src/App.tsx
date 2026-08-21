@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type DragEventHandler,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -20,6 +21,7 @@ type IconName =
   | "bookmark"
   | "bookmarkFill"
   | "chevronDown"
+  | "chevronLeft"
   | "chevronRight"
   | "chevronUp"
   | "checkmark"
@@ -38,6 +40,9 @@ type IconName =
   | "xmark";
 
 export function App() {
+  const [sidebarWidth, setSidebarWidth] = useState(() => readStoredNumber("mdv.sidebarWidth", 240));
+  const [sidebarHandleHovered, setSidebarHandleHovered] = useState(false);
+  const sidebarResizeRef = useRef<{ x: number; width: number } | null>(null);
   const [zoomHudVisible, setZoomHudVisible] = useState(false);
   const zoomHudTimerRef = useRef<number | undefined>(undefined);
   const previousZoomRef = useRef<number | null>(null);
@@ -46,6 +51,7 @@ export function App() {
   const api = useAppStore((state) => state.api);
   const currentDocument = useAppStore((state) => state.document);
   const html = useAppStore((state) => state.html);
+  const inspectorVisible = useAppStore((state) => state.inspectorVisible);
   const addBookmarkAtCurrentSpot = useAppStore((state) => state.addBookmarkAtCurrentSpot);
   const chooseAndOpenDocument = useAppStore((state) => state.chooseAndOpenDocument);
   const chooseAndOpenDocumentInNewWindow = useAppStore(
@@ -70,6 +76,29 @@ export function App() {
   const toggleSmartTypography = useAppStore((state) => state.toggleSmartTypography);
   const zoomIn = useAppStore((state) => state.zoomIn);
   const zoomOut = useAppStore((state) => state.zoomOut);
+  const clampedSidebarWidth = Math.min(400, Math.max(180, sidebarWidth));
+
+  const stopSidebarResize = () => {
+    if (!sidebarResizeRef.current) return;
+    sidebarResizeRef.current = null;
+    window.removeEventListener("pointermove", onSidebarResizePointerMove);
+    window.removeEventListener("pointerup", stopSidebarResize);
+  };
+
+  const onSidebarResizePointerMove = (event: PointerEvent) => {
+    const start = sidebarResizeRef.current;
+    if (!start) return;
+    const nextWidth = Math.min(400, Math.max(180, start.width + event.clientX - start.x));
+    localStorage.setItem("mdv.sidebarWidth", String(nextWidth));
+    setSidebarWidth(nextWidth);
+  };
+
+  const startSidebarResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    sidebarResizeRef.current = { x: event.clientX, width: clampedSidebarWidth };
+    window.addEventListener("pointermove", onSidebarResizePointerMove);
+    window.addEventListener("pointerup", stopSidebarResize);
+  };
 
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -361,13 +390,26 @@ export function App() {
     <main className="relative grid h-screen overflow-hidden grid-rows-[auto_minmax(0,1fr)] bg-[var(--bg)] text-[var(--chrome-text)]">
       <TopBar />
       <div
-        className={`grid min-h-0 grid-cols-1 ${
-          sidebarVisible
-            ? "lg:grid-cols-[240px_minmax(0,1fr)_240px]"
-            : "lg:grid-cols-[minmax(0,1fr)_240px]"
-        }`}
+        className="mdv-app-shell grid min-h-0 transition-[grid-template-columns] duration-[220ms] ease-out"
+        data-sidebar-visible={sidebarVisible ? "true" : "false"}
+        data-testid="app-shell"
+        style={
+          {
+            "--mdv-shell-columns": sidebarVisible
+              ? `${clampedSidebarWidth}px 8px minmax(0,1fr) ${inspectorVisible ? 240 : 0}px`
+              : `6px minmax(0,1fr) ${inspectorVisible ? 240 : 0}px`,
+          } as CSSProperties
+        }
       >
         {sidebarVisible ? <Sidebar /> : null}
+        <SidebarDivider
+          hovered={sidebarHandleHovered}
+          visible={sidebarVisible}
+          onCollapse={toggleSidebar}
+          onExpand={toggleSidebar}
+          onHover={setSidebarHandleHovered}
+          onResizeStart={startSidebarResize}
+        />
         <Viewer />
         <Inspector />
       </div>
@@ -399,7 +441,7 @@ function TopBar() {
   );
 
   return (
-    <header className="grid h-12 min-w-0 grid-cols-[minmax(110px,1fr)_auto] items-center overflow-hidden border-[var(--border)] border-b bg-[var(--titlebar)] pr-3 pl-5">
+    <header className="relative z-30 grid h-12 min-w-0 grid-cols-[minmax(110px,1fr)_auto] items-center border-[var(--border)] border-b bg-[var(--titlebar)] pr-3 pl-5">
       <div className="min-w-0">
         <div className="truncate font-bold text-[var(--title-text)] text-base">
           {document?.filename ?? "mdv"}
@@ -450,8 +492,79 @@ function TopBar() {
   );
 }
 
+function SidebarDivider({
+  hovered,
+  onCollapse,
+  onExpand,
+  onHover,
+  onResizeStart,
+  visible,
+}: {
+  hovered: boolean;
+  onCollapse: () => void;
+  onExpand: () => void;
+  onHover: (hovered: boolean) => void;
+  onResizeStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  visible: boolean;
+}) {
+  if (!visible) {
+    return (
+      <div
+        className="mdv-sidebar-divider group relative z-40 min-w-[6px] cursor-default place-items-start bg-[var(--bg)] pt-3"
+        data-testid="sidebar-edge-gutter"
+        onPointerEnter={() => onHover(true)}
+        onPointerLeave={() => onHover(false)}
+      >
+        <div
+          className={`absolute top-0 bottom-0 left-0 ${
+            hovered ? "w-0.5 bg-[color-mix(in_srgb,var(--accent)_50%,transparent)]" : "w-px"
+          } transition-all duration-150`}
+        />
+        <button
+          className="mt-1 grid h-[22px] w-4 place-items-center rounded border border-[var(--divider)] bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] text-[var(--text)] opacity-80"
+          type="button"
+          aria-label="Show Sidebar"
+          onClick={onExpand}
+        >
+          <Icon name="chevronRight" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="mdv-sidebar-divider relative z-40 min-w-2 cursor-ew-resize place-items-start bg-[var(--bg)] pt-3"
+      data-testid="sidebar-resizer"
+      onPointerDown={onResizeStart}
+      onPointerEnter={() => onHover(true)}
+      onPointerLeave={() => onHover(false)}
+    >
+      <div
+        className={`absolute top-0 bottom-0 left-1/2 -translate-x-1/2 ${
+          hovered
+            ? "w-0.5 bg-[color-mix(in_srgb,var(--accent)_50%,transparent)]"
+            : "w-px bg-[var(--divider)]"
+        } transition-all duration-150`}
+      />
+      <button
+        className={`relative z-50 mt-1 grid h-[22px] w-4 place-items-center rounded border border-[var(--divider)] bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] text-[var(--text)] transition-opacity duration-[180ms] ${
+          hovered ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        type="button"
+        aria-label="Hide Sidebar"
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={onCollapse}
+      >
+        <Icon name="chevronLeft" />
+      </button>
+    </div>
+  );
+}
+
 function ThemeMenu({ onSelect, selected }: { onSelect: (theme: Theme) => void; selected: Theme }) {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const labels: Record<Theme, string> = {
     system: "System",
     "high-contrast": "High Contrast",
@@ -465,8 +578,25 @@ function ThemeMenu({ onSelect, selected }: { onSelect: (theme: Theme) => void; s
     "standard-erin-dark": "Standard Erin Dark",
   };
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <button
         className="mdv-icon-button"
         type="button"
@@ -479,8 +609,9 @@ function ThemeMenu({ onSelect, selected }: { onSelect: (theme: Theme) => void; s
       </button>
       {open ? (
         <div
-          className="absolute top-9 right-0 z-20 min-w-44 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-sm shadow-lg"
+          className="absolute top-9 right-0 z-50 min-w-48 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-sm shadow-lg"
           role="menu"
+          data-testid="theme-menu"
         >
           {themes.map((id) => (
             <button
@@ -494,7 +625,9 @@ function ThemeMenu({ onSelect, selected }: { onSelect: (theme: Theme) => void; s
                 setOpen(false);
               }}
             >
-              <span aria-hidden="true">{selected === id ? "*" : ""}</span>
+              <span className="grid place-items-center" aria-hidden="true">
+                {selected === id ? <Icon name="checkmark" /> : null}
+              </span>
               <span>{labels[id]}</span>
             </button>
           ))}
@@ -553,7 +686,11 @@ function Sidebar() {
             <Icon name="magnifyingglass" />
           </button>
         </div>
-        {searchVisible ? (
+        <div
+          className="mdv-collapsible"
+          data-open={searchVisible ? "true" : "false"}
+          data-testid="history-search-pod"
+        >
           <div className="grid gap-1.5">
             <input
               id="history-search"
@@ -578,7 +715,7 @@ function Sidebar() {
               Clear
             </button>
           </div>
-        ) : null}
+        </div>
       </div>
 
       <div className="grid gap-0.5 p-2 pt-1" data-testid="history-list">
@@ -1136,8 +1273,6 @@ function Inspector() {
     return toc.filter((heading) => heading.text.toLowerCase().includes(query));
   }, [toc, tocSearchQuery]);
 
-  if (!inspectorVisible) return null;
-
   const maxBookmarksHeight = () => {
     const totalHeight = inspectorRef.current?.getBoundingClientRect().height ?? 240;
     return Math.max(120, totalHeight - 80 - 32 - 12);
@@ -1176,7 +1311,11 @@ function Inspector() {
     <aside
       ref={inspectorRef}
       aria-label="Table of contents"
-      className="grid w-full grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] lg:w-[240px] lg:border-t-0 lg:border-l"
+      aria-hidden={!inspectorVisible}
+      className={`mdv-inspector-panel grid w-full grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] transition-opacity duration-[220ms] lg:border-t-0 lg:border-l ${
+        inspectorVisible ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+      data-testid="inspector-panel"
     >
       <div className="min-h-0 overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-3.5 pt-3.5 pb-1.5">
@@ -1190,7 +1329,11 @@ function Inspector() {
             <Icon name="magnifyingglass" />
           </button>
         </div>
-        {tocSearchVisible ? (
+        <div
+          className="mdv-collapsible"
+          data-open={tocSearchVisible ? "true" : "false"}
+          data-testid="toc-search-pod"
+        >
           <div className="px-2.5 pb-1.5">
             <label className="mdv-inspector-search">
               <Icon name="magnifyingglass" />
@@ -1212,18 +1355,17 @@ function Inspector() {
               </button>
             </label>
           </div>
-        ) : null}
+        </div>
         <nav className="grid gap-px overflow-auto px-2 py-1" data-testid="toc">
           <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
-      {bookmarksExpanded ? (
-        <div
-          className="mdv-inspector-resizer"
-          data-testid="bookmarks-resizer"
-          onPointerDown={startResize}
-        />
-      ) : null}
+      <div
+        className="mdv-inspector-resizer"
+        data-testid="bookmarks-resizer"
+        data-open={bookmarksExpanded ? "true" : "false"}
+        onPointerDown={bookmarksExpanded ? startResize : undefined}
+      />
       <div className="border-[var(--border)] border-t" data-testid="bookmarks">
         <button
           className="flex h-8 w-full items-center gap-1.5 px-3.5 py-2 text-left"
@@ -1246,7 +1388,11 @@ function Inspector() {
             </span>
           ) : null}
         </button>
-        {bookmarksExpanded ? (
+        <div
+          className="mdv-collapsible"
+          data-open={bookmarksExpanded ? "true" : "false"}
+          data-testid="bookmarks-collapse"
+        >
           <div
             className="grid overflow-auto px-2 pb-3"
             data-testid="bookmarks-content"
@@ -1254,7 +1400,7 @@ function Inspector() {
           >
             <BookmarkRows bookmarks={bookmarks} />
           </div>
-        ) : null}
+        </div>
       </div>
     </aside>
   );
@@ -1274,7 +1420,7 @@ function HistoryRows({ history }: { history: HistoryEntry[] }) {
       subtitleMode="head"
       variant="history"
       revealLabel={`Reveal ${entry.filename} in Finder`}
-      removeLabel={`Remove ${entry.filename} from history`}
+      removeLabel="Remove from History"
       onReveal={() => void revealPath(entry.path)}
       onRemove={() => void removeHistoryEntry(entry.path)}
       onClick={() => void openDocument(entry.path)}
@@ -1449,9 +1595,7 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
           variant="placeholder"
           iconName="pinFill"
           selected={placeholderSelected}
-          revealLabel={`Reveal placeholder ${placeholder.title ?? filenameForPath(placeholder.path)} in Finder`}
           removeLabel="Clear placeholder"
-          onReveal={() => void revealPath(placeholder.path)}
           onRemove={clearPlaceholder}
           onClick={() => void jumpToPlaceholder()}
         />
@@ -1509,6 +1653,18 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
           menu={menu}
           onClose={() => setMenu(null)}
           onMove={moveBookmark}
+          onOpen={(bookmarkId) => {
+            setMenu(null);
+            void openBookmark(bookmarkId);
+          }}
+          onRemove={(bookmarkId) => {
+            setMenu(null);
+            void removeBookmark(bookmarkId);
+          }}
+          onReveal={(bookmark) => {
+            setMenu(null);
+            void revealPath(bookmark.path);
+          }}
         />
       ) : null}
     </>
@@ -1520,11 +1676,17 @@ function BookmarkContextMenu({
   menu,
   onClose,
   onMove,
+  onOpen,
+  onRemove,
+  onReveal,
 }: {
   bookmarks: Bookmark[];
   menu: { bookmarkId: number; x: number; y: number };
   onClose: () => void;
   onMove: (bookmarkId: number, destination: "up" | "down" | "top" | "bottom") => void;
+  onOpen: (bookmarkId: number) => void;
+  onRemove: (bookmarkId: number) => void;
+  onReveal: (bookmark: Bookmark) => void;
 }) {
   useEffect(() => {
     window.addEventListener("pointerdown", onClose);
@@ -1535,10 +1697,11 @@ function BookmarkContextMenu({
     };
   }, [onClose]);
   const index = bookmarks.findIndex((bookmark) => bookmark.id === menu.bookmarkId);
+  const bookmark = bookmarks[index];
   const atTop = index <= 0;
   const atBottom = index < 0 || index >= bookmarks.length - 1;
   const left = Math.min(menu.x, window.innerWidth - 156);
-  const top = Math.min(menu.y, window.innerHeight - 128);
+  const top = Math.min(menu.y, window.innerHeight - 228);
   return (
     <div
       className="fixed z-50 min-w-36 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
@@ -1546,6 +1709,13 @@ function BookmarkContextMenu({
       style={{ left, top }}
       onPointerDown={(event) => event.stopPropagation()}
     >
+      <MenuButton disabled={!bookmark?.file_exists} onClick={() => onOpen(menu.bookmarkId)}>
+        Go to Bookmark
+      </MenuButton>
+      <MenuButton disabled={!bookmark?.file_exists} onClick={() => bookmark && onReveal(bookmark)}>
+        Reveal in Finder
+      </MenuButton>
+      <MenuDivider />
       <MenuButton disabled={atTop} onClick={() => onMove(menu.bookmarkId, "up")}>
         Move Up
       </MenuButton>
@@ -1558,22 +1728,27 @@ function BookmarkContextMenu({
       <MenuButton disabled={atBottom} onClick={() => onMove(menu.bookmarkId, "bottom")}>
         Move to Bottom
       </MenuButton>
+      <MenuDivider />
+      <MenuButton onClick={() => onRemove(menu.bookmarkId)}>Remove Bookmark</MenuButton>
     </div>
   );
 }
 
 function MenuButton({
+  ariaLabel,
   children,
   disabled,
   onClick,
 }: {
+  ariaLabel?: string;
   children: ReactNode;
-  disabled: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       className="block w-full px-3 py-1.5 text-left disabled:text-[color-mix(in_srgb,var(--muted)_55%,transparent)] enabled:hover:bg-[var(--panel-strong)]"
+      aria-label={ariaLabel}
       disabled={disabled}
       role="menuitem"
       type="button"
@@ -1582,6 +1757,10 @@ function MenuButton({
       {children}
     </button>
   );
+}
+
+function MenuDivider() {
+  return <hr className="my-1 border-[var(--border)] border-t" />;
 }
 
 function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[] }) {
@@ -1658,60 +1837,122 @@ function DocumentRow({
   title: string;
   variant?: "history" | "search" | "bookmark" | "placeholder";
 }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const currentPath = useAppStore((state) => state.document?.path);
   const selected = selectedOverride ?? currentPath === path;
+  const hasContextMenu = Boolean(onReveal || onRemove || variant === "search");
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [menu]);
+
   return (
-    <li
-      className={`mdv-document-row group grid list-none grid-cols-[16px_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-[5px] px-2 ${
-        selected
-          ? "bg-[color-mix(in_srgb,var(--chrome-text)_12%,transparent)]"
-          : "hover:bg-[var(--panel-strong)]"
-      } ${muted ? "opacity-60" : ""}`}
-      data-selected={selected ? "true" : "false"}
-      data-row-variant={variant}
-      draggable={draggable}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOver}
-      onDragStart={onDragStart}
-      onDrop={onDrop}
-      onContextMenu={onContextMenu}
-    >
-      <span className="mdv-row-icon">
-        <Icon name={iconName} />
-      </span>
-      <button className="grid min-w-0 gap-px py-1 text-left" type="button" onClick={onClick}>
-        <span className="truncate text-[13px] text-[var(--chrome-text)] leading-[16px]">
-          {title}
+    <>
+      <li
+        className={`mdv-document-row group grid list-none grid-cols-[16px_minmax(0,1fr)] items-center gap-2 rounded-[5px] px-2 ${
+          selected
+            ? "bg-[color-mix(in_srgb,var(--chrome-text)_12%,transparent)]"
+            : "hover:bg-[var(--panel-strong)]"
+        } ${muted ? "opacity-60" : ""}`}
+        data-selected={selected ? "true" : "false"}
+        data-row-variant={variant}
+        draggable={draggable}
+        onDragEnd={onDragEnd}
+        onDragOver={onDragOver}
+        onDragStart={onDragStart}
+        onDrop={onDrop}
+        onContextMenu={(event) => {
+          if (onContextMenu) {
+            onContextMenu(event);
+            return;
+          }
+          if (!hasContextMenu) return;
+          event.preventDefault();
+          setMenu({ x: event.clientX, y: event.clientY });
+        }}
+      >
+        <span className="mdv-row-icon">
+          <Icon name={iconName} />
         </span>
-        <span
-          className={`truncate text-[var(--muted)] leading-[13px] ${
-            variant === "bookmark" ? "text-[10px]" : "text-[11px]"
-          } ${subtitleMode === "head" ? "mdv-truncate-head" : ""}`}
-        >
-          {subtitle}
-        </span>
-      </button>
-      {onReveal ? (
-        <button
-          aria-label={revealLabel}
-          className="rounded px-1.5 py-1 text-[10px] text-[var(--muted)] opacity-0 hover:bg-[var(--bg)] hover:text-[var(--text)] group-hover:opacity-100"
-          type="button"
-          onClick={onReveal}
-        >
-          Reveal
+        <button className="grid min-w-0 gap-px py-1 text-left" type="button" onClick={onClick}>
+          <span className="truncate text-[13px] text-[var(--chrome-text)] leading-[16px]">
+            {title}
+          </span>
+          <span
+            className={`truncate text-[var(--muted)] leading-[13px] ${
+              variant === "bookmark" ? "text-[10px]" : "text-[11px]"
+            } ${subtitleMode === "head" ? "mdv-truncate-head" : ""}`}
+          >
+            {subtitle}
+          </span>
         </button>
+      </li>
+      {menu ? (
+        <DocumentRowContextMenu
+          left={Math.min(menu.x, window.innerWidth - 168)}
+          top={Math.min(menu.y, window.innerHeight - 112)}
+          onClick={variant === "search" ? onClick : undefined}
+          onClose={() => setMenu(null)}
+          onRemove={onRemove}
+          onReveal={onReveal}
+          removeLabel={removeLabel}
+          revealLabel={revealLabel}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function DocumentRowContextMenu({
+  left,
+  onClick,
+  onClose,
+  onRemove,
+  onReveal,
+  removeLabel,
+  revealLabel,
+  top,
+}: {
+  left: number;
+  onClick?: () => void;
+  onClose: () => void;
+  onRemove?: () => void;
+  onReveal?: () => void;
+  removeLabel?: string;
+  revealLabel?: string;
+  top: number;
+}) {
+  const run = (action: () => void) => {
+    onClose();
+    action();
+  };
+  return (
+    <div
+      className="fixed z-50 min-w-40 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
+      role="menu"
+      style={{ left, top }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {onClick ? <MenuButton onClick={() => run(onClick)}>Open</MenuButton> : null}
+      {onReveal ? (
+        <MenuButton ariaLabel={revealLabel} onClick={() => run(onReveal)}>
+          Reveal in Finder
+        </MenuButton>
       ) : null}
       {onRemove ? (
-        <button
-          aria-label={removeLabel}
-          className="rounded px-1 py-1 text-[var(--muted)] opacity-0 hover:bg-[var(--bg)] hover:text-[var(--text)] group-hover:opacity-100"
-          type="button"
-          onClick={onRemove}
-        >
-          <Icon name="xmark" />
-        </button>
+        <>
+          <MenuDivider />
+          <MenuButton onClick={() => run(onRemove)}>{removeLabel ?? "Remove"}</MenuButton>
+        </>
       ) : null}
-    </li>
+    </div>
   );
 }
 
@@ -1732,6 +1973,7 @@ function Icon({ name }: { name: IconName }) {
     bookmark: "bookmark",
     bookmarkFill: "bookmark.fill",
     chevronDown: "chevron.down",
+    chevronLeft: "chevron.left",
     chevronRight: "chevron.right",
     chevronUp: "chevron.up",
     checkmark: "checkmark",
@@ -1755,6 +1997,7 @@ function Icon({ name }: { name: IconName }) {
       <path d="M6.75 4.25h10.5v16.5L12 17.25l-5.25 3.5V4.25Z" fill="currentColor" stroke="none" />
     ),
     chevronDown: <path d="m6.75 9.25 5.25 5.5 5.25-5.5" />,
+    chevronLeft: <path d="m14.75 6.75-5.5 5.25 5.5 5.25" />,
     chevronRight: <path d="m9.25 6.75 5.5 5.25-5.5 5.25" />,
     chevronUp: <path d="m6.75 14.75 5.25-5.5 5.25 5.5" />,
     checkmark: <path d="m5.5 12.4 4.1 4.1 8.9-9" />,

@@ -1099,8 +1099,8 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Navigate",
         true,
         &[
-            &MenuItem::with_id(app, "back", "Back", true, Some("Cmd+Left"))?,
-            &MenuItem::with_id(app, "forward", "Forward", true, Some("Cmd+Right"))?,
+            &MenuItem::with_id(app, "back", "Back", true, Some("Cmd+ArrowLeft"))?,
+            &MenuItem::with_id(app, "forward", "Forward", true, Some("Cmd+ArrowRight"))?,
         ],
     )?;
     let view = Submenu::with_items(

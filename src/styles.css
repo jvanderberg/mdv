@@ -392,6 +392,62 @@ button {
   color: inherit;
 }
 
+.mdv-app-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mdv-sidebar-divider {
+  display: none;
+}
+
+.mdv-inspector-panel[aria-hidden="true"] {
+  display: none;
+}
+
+.mdv-inspector-panel {
+  max-height: 260px;
+}
+
+.mdv-collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    grid-template-rows 200ms ease-out,
+    opacity 180ms ease-out;
+}
+
+.mdv-collapsible[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.mdv-collapsible > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .mdv-app-shell {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-columns: var(--mdv-shell-columns);
+  }
+
+  .mdv-sidebar-divider {
+    display: grid;
+  }
+
+  .mdv-inspector-panel[aria-hidden="true"] {
+    display: grid;
+  }
+
+  .mdv-inspector-panel {
+    max-height: none;
+  }
+}
+
 .mdv-button {
   min-height: 30px;
   border: 0;
@@ -546,6 +602,12 @@ button {
 .mdv-inspector-resizer:hover::before {
   height: 2px;
   background: var(--divider);
+}
+
+.mdv-inspector-resizer[data-open="false"] {
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .mdv-inspector-search {
@@ -721,6 +783,58 @@ button {
 .markdown-body strong {
   color: var(--strong);
   font-weight: var(--strong-weight);
+}
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body blockquote,
+.markdown-body table,
+.markdown-body pre {
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.6em;
+}
+
+.markdown-body ul {
+  list-style: disc;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+}
+
+.markdown-body ul ul {
+  list-style: circle;
+}
+
+.markdown-body ul ul ul {
+  list-style: square;
+}
+
+.markdown-body ol ol,
+.markdown-body ul ol {
+  list-style: lower-alpha;
+}
+
+.markdown-body li {
+  margin: 0.24em 0;
+  padding-left: 0.15em;
+}
+
+.markdown-body li > p {
+  margin: 0.35em 0;
+}
+
+.markdown-body hr {
+  height: 1px;
+  border: 0;
+  background: var(--border);
+  margin: 1.5em 0;
 }
 
 .markdown-body .mdv-find-match-block {

@@ -43,6 +43,32 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Markdown rendering now restores visible unordered/ordered list markers after
+  Tailwind preflight, preserves nested marker styles and Markdown spacing, and
+  routes raw HTML `<img>` tags through mdv's existing local/data/remote/missing
+  image policy. Covered by renderer unit tests, fixture coverage for
+  `test-docs/images.md`, and Playwright checks for native-style list markers and
+  loaded HTML image tags.
+- Row-level file actions now match Swift-style contextual workflows instead of
+  exposing invented hover buttons: history rows, global search hits,
+  placeholders, and bookmarks use context menus for open/reveal/remove/reorder
+  actions, and the oversized hover `Reveal` button has been removed. Covered by
+  the Playwright deletion, missing-bookmark, and reveal-in-Finder workflows.
+- The desktop shell now has a Swift-style three-panel split view with a
+  resizable left history sidebar, hover-revealed collapse control, collapsed
+  edge gutter, animated right inspector collapse, and animated history search,
+  TOC filter, and bookmarks open/collapse pods. Mobile keeps the viewer usable
+  with capped responsive pane heights. Covered by cross-browser Playwright split
+  and animation tests.
+- Navigate menu accelerators now use Tauri/muda's supported `Cmd+ArrowLeft` and
+  `Cmd+ArrowRight` syntax while preserving Swift back/forward behavior. Covered
+  by Tauri config contract tests plus browser hotkey and menu-command parity
+  checks.
+- Latest parity gate run: `npm run lint`, `npm test`, `npm run build`,
+  `cargo test --manifest-path src-tauri/Cargo.toml`, `npm run test:parity`
+  (158 passed, 1 skipped), and `npm run compare:visual` all pass. The visual
+  comparator captured both real apps and reported three-panel structure for both
+  native and Tauri captures.
 - The Tauri native menu now matches Swift mdv's custom command labels exactly,
   including ellipsis and bookmark-slot dash punctuation, and has a source-level
   contract test for every custom command id, label, shortcut, and renderer

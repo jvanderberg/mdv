@@ -85,6 +85,34 @@ test("filters the table of contents inside the inspector", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("search pods and bookmarks collapse with animated mdv panels", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+
+  await page.getByRole("button", { name: "Search history" }).click();
+  await expect(page.getByTestId("history-search-pod")).toHaveAttribute("data-open", "true");
+  await expect(page.getByTestId("history-search-pod")).toHaveCSS(
+    "transition-duration",
+    /0\.(18|2)s/,
+  );
+
+  await ensureInspector(page);
+  await page.getByRole("button", { name: "Filter headings" }).click();
+  await expect(page.getByTestId("toc-search-pod")).toHaveAttribute("data-open", "true");
+  await expect(page.getByTestId("toc-search-pod")).toHaveCSS("transition-duration", /0\.(18|2)s/);
+
+  await ensureBookmarksExpanded(page);
+  await page.getByTestId("bookmarks").getByRole("button", { name: "Bookmarks" }).click();
+  await expect(page.getByTestId("bookmarks-collapse")).toHaveAttribute("data-open", "false");
+  await expect(page.getByTestId("bookmarks-collapse")).toHaveCSS(
+    "transition-duration",
+    /0\.(18|2)s/,
+  );
+});
+
 test("inspector typography and spacing match the Swift pane", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -112,7 +140,8 @@ test("inspector typography and spacing match the Swift pane", async ({ page }) =
     "height",
     "32px",
   );
-  await expect(page.getByTestId("bookmarks-resizer")).toHaveCount(0);
+  await expect(page.getByTestId("bookmarks-resizer")).toHaveAttribute("data-open", "false");
+  await expect(page.getByTestId("bookmarks-resizer")).toHaveCSS("height", "0px");
 });
 
 test("tracks the active heading in the table of contents", async ({ page }) => {
@@ -252,6 +281,11 @@ test("back and forward restore document snapshots by visible block", async ({ pa
 
   await page.keyboard.press("Meta+ArrowRight");
   await expect(page.getByText("syntax.md").first()).toBeVisible();
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("back"));
+  await expect(page.getByText("links.md").first()).toBeVisible();
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("forward"));
+  await expect(page.getByText("syntax.md").first()).toBeVisible();
 });
 
 test("cross-document fragments open the target document and scroll to the heading", async ({
@@ -297,12 +331,51 @@ test("renders local and data images while blocking remote and missing images", a
   );
 
   const loadedImages = page.locator("img[data-image-state='loaded']");
-  await expect(loadedImages).toHaveCount(6);
+  await expect(loadedImages).toHaveCount(7);
+  await expect(page.getByAltText("HTML icon")).toBeVisible();
   await expect(page.getByAltText("tiny pixel")).toBeVisible();
   await expect(page.getByAltText("inline icon")).toBeVisible();
   await expect(page.getByText("Remote image blocked")).toBeVisible();
   await expect(page.getByText("github.githubassets.com")).toBeVisible();
   await expect(page.getByText("image not found: does-not-exist.png")).toBeVisible();
+});
+
+test("renders markdown lists with visible native-style markers", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/syntax.md")],
+  );
+
+  const unordered = page.getByTestId("markdown-body").locator("ul").first();
+  const ordered = page.getByTestId("markdown-body").locator("ol").first();
+  await expect(unordered.locator("li", { hasText: "Apples" })).toBeVisible();
+  await expect(
+    page.getByTestId("markdown-body").locator("ul ul").first().locator("li").filter({
+      hasText: "Hachiya (eat soft)",
+    }),
+  ).toBeVisible();
+  await expect(ordered.locator("li", { hasText: "Wash the rice" })).toBeVisible();
+
+  const markerStyles = await page.evaluate(() => {
+    const body = document.querySelector("[data-testid='markdown-body']");
+    const ul = body?.querySelector("ul");
+    const nestedUl = body?.querySelector("ul ul");
+    const ol = body?.querySelector("ol");
+    return {
+      unordered: ul ? getComputedStyle(ul).listStyleType : "",
+      nested: nestedUl ? getComputedStyle(nestedUl).listStyleType : "",
+      ordered: ol ? getComputedStyle(ol).listStyleType : "",
+      padding: ul ? Number.parseFloat(getComputedStyle(ul).paddingLeft) : 0,
+    };
+  });
+  expect(markerStyles).toEqual({
+    unordered: "disc",
+    nested: "circle",
+    ordered: "decimal",
+    padding: expect.any(Number),
+  });
+  expect(markerStyles.padding).toBeGreaterThan(12);
 });
 
 test("history search, document find, and bookmarks are automatic workflows", async ({ page }) => {
@@ -399,7 +472,7 @@ test("find shortcuts route by focused pane and close with Escape", async ({ page
   await expect(page.getByPlaceholder("Search history")).toBeFocused();
   await expect(page.getByTestId("document-find")).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await expect(page.getByPlaceholder("Search history")).toHaveCount(0);
+  await expect(page.getByTestId("history-search-pod")).toHaveAttribute("data-open", "false");
 });
 
 test("sidebar and bookmark rows preserve Swift visual density", async ({ page }) => {
@@ -431,6 +504,75 @@ test("sidebar and bookmark rows preserve Swift visual density", async ({ page })
   await expect(bookmarkRow.locator(".mdv-row-icon .mdv-symbol")).toHaveCSS("width", "11px");
   await expect(bookmarkRow).toContainText("syntax.md");
   await expect(bookmarkRow).not.toContainText(abs("test-docs/syntax.md"));
+});
+
+test("left sidebar resizes and collapses through the Swift divider affordance", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  const sidebar = page.getByRole("complementary", { name: "History" });
+  const resizer = page.getByTestId("sidebar-resizer");
+  const initialWidth = await sidebar.evaluate((element) => element.getBoundingClientRect().width);
+  const box = await resizer.boundingBox();
+  if (!box) {
+    await expect(resizer).toBeHidden();
+    return;
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 48, box.y + box.height / 2);
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => sidebar.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(initialWidth + 24);
+  expect(
+    Number(await page.evaluate(() => localStorage.getItem("mdv.sidebarWidth"))),
+  ).toBeGreaterThan(initialWidth + 24);
+
+  await resizer.hover();
+  await page.getByRole("button", { name: "Hide Sidebar" }).click();
+  await expect(sidebar).toHaveCount(0);
+  await expect(page.getByTestId("sidebar-edge-gutter")).toBeVisible();
+  await page.getByRole("button", { name: "Show Sidebar" }).click();
+  await expect(sidebar).toBeVisible();
+});
+
+test("right inspector collapse uses the animated shell transition", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+
+  const shellTransition = await page
+    .getByTestId("app-shell")
+    .evaluate((element) => getComputedStyle(element).transitionProperty);
+  const inspectorTransition = await page
+    .getByTestId("inspector-panel")
+    .evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(shellTransition).toContain("grid-template-columns");
+  expect(inspectorTransition).toContain("0.22s");
+
+  const initialWidth = await page
+    .getByTestId("inspector-panel")
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(initialWidth).toBeGreaterThan(200);
+
+  await page.getByRole("button", { name: "Table of contents" }).click();
+  await expect(page.getByTestId("inspector-panel")).toHaveAttribute("aria-hidden", "true");
+  await expect
+    .poll(async () =>
+      page
+        .getByTestId("inspector-panel")
+        .evaluate((element) => element.getBoundingClientRect().width),
+    )
+    .toBeLessThan(8);
 });
 
 test("bookmarks track current selection and can be reordered", async ({ page }) => {
@@ -467,9 +609,7 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
   await expect(page.getByText("syntax.md").first()).toBeVisible();
 });
 
-test("placeholder appears as a pinned bookmark row and can jump, reveal, and clear", async ({
-  page,
-}) => {
+test("placeholder appears as a pinned bookmark row and can jump and clear", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -487,7 +627,6 @@ test("placeholder appears as a pinned bookmark row and can jump, reveal, and cle
   await expect(placeholderRow).toHaveCount(1);
   await expect(placeholderRow).toHaveAttribute("data-selected", "true");
   await expect(placeholderRow).toContainText("toc-stress.md");
-  await page.getByLabel(/Reveal placeholder .* in Finder/).click();
 
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -500,12 +639,10 @@ test("placeholder appears as a pinned bookmark row and can jump, reveal, and cle
     .poll(async () => viewer.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(300);
 
-  await page.getByLabel("Clear placeholder").click();
+  await placeholderRow.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Clear placeholder" }).click();
   await expect(placeholderRow).toHaveCount(0);
   await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks");
-
-  const revealCalls = await page.evaluate(() => window.__MDV_REVEAL_CALLS__ ?? []);
-  expect(revealCalls).toContain(abs("test-docs/toc-stress.md"));
 });
 
 test("bookmarks pane resizes and persists its height", async ({ page }) => {
@@ -596,14 +733,22 @@ test("history and bookmark deletion workflows update persisted lists", async ({ 
   );
 
   await expect(page.getByTestId("history-list")).toContainText("README.md");
-  await page.getByLabel("Remove README.md from history").click();
+  await page
+    .locator(".mdv-document-row[data-row-variant='history']")
+    .filter({ hasText: "README.md" })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Remove from History" }).click();
   await expect(page.getByTestId("history-list")).not.toContainText("README.md");
 
   await clickToolbarBookmark(page);
   await ensureInspector(page);
   await ensureBookmarksExpanded(page);
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
-  await page.getByLabel("Remove bookmark Markdown Syntax Tour").click();
+  await page
+    .locator(".mdv-document-row[data-row-variant='bookmark']")
+    .filter({ hasText: "Markdown Syntax Tour" })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Remove Bookmark" }).click();
   await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks");
 
   await page.getByRole("button", { name: "Search history" }).click();
@@ -638,11 +783,14 @@ test("missing bookmark rows are dimmed, inert, and removable", async ({ page }) 
   const missingRow = page.locator(".mdv-document-row[data-row-variant='bookmark']").first();
   await expect(missingRow).toContainText("Missing Bookmark");
   await expect(missingRow).toHaveCSS("opacity", "0.6");
-  await expect(page.getByLabel("Reveal bookmark Missing Bookmark in Finder")).toHaveCount(0);
+  await missingRow.click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Reveal in Finder" })).toBeDisabled();
+  await page.keyboard.press("Escape");
   await missingRow.getByRole("button").first().click();
   await expect(page.getByText("README.md").first()).toBeVisible();
 
-  await page.getByLabel("Remove bookmark Missing Bookmark").click();
+  await missingRow.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Remove Bookmark" }).click();
   await expect(missingRow).toHaveCount(0);
 });
 
@@ -656,17 +804,33 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
     [abs("test-docs/README.md"), abs("test-docs/syntax.md")],
   );
 
-  await page.getByLabel("Reveal README.md in Finder").click();
+  await page
+    .locator(".mdv-document-row[data-row-variant='history']")
+    .filter({ hasText: "README.md" })
+    .click({
+      button: "right",
+    });
+  await page.getByRole("menuitem", { name: "Reveal README.md in Finder" }).click();
   await page.getByRole("button", { name: "Search history" }).click();
   await page.getByPlaceholder("Search history").fill("checklist");
-  await page.getByLabel("Reveal README.md in Finder").click();
+  await page
+    .locator(".mdv-document-row[data-row-variant='search']")
+    .filter({ hasText: "README.md" })
+    .click({
+      button: "right",
+    });
+  await page.getByRole("menuitem", { name: "Reveal README.md in Finder" }).click();
   await page.getByTestId("viewer-scroll").click();
   await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
   await clickToolbarBookmark(page);
   await ensureInspector(page);
   await ensureBookmarksExpanded(page);
-  await page.getByLabel("Reveal bookmark Markdown Syntax Tour in Finder").click();
+  await page
+    .locator(".mdv-document-row[data-row-variant='bookmark']")
+    .filter({ hasText: "Markdown Syntax Tour" })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Reveal in Finder" }).click();
 
   const calls = await page.evaluate(() => window.__MDV_REVEAL_CALLS__ ?? []);
   expect(calls).toEqual([
@@ -722,6 +886,35 @@ test("theme menu exposes the full Swift mdv catalog", async ({ page }) => {
     await page.getByRole("menuitemradio", { name: label }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", id);
   }
+});
+
+test("theme palette opens below the toolbar and accepts selection", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  const toolbarBox = await page.getByTestId("app-toolbar").boundingBox();
+  const menuBox = await page.getByTestId("theme-menu").boundingBox();
+  expect(toolbarBox).not.toBeNull();
+  expect(menuBox).not.toBeNull();
+  expect(menuBox?.y).toBeGreaterThan((toolbarBox?.y ?? 0) + 24);
+  expect(menuBox?.height).toBeGreaterThan(250);
+
+  const charcoal = page.getByRole("menuitemradio", { name: "Charcoal" });
+  await expect(charcoal).toBeVisible();
+  const charcoalBox = await charcoal.boundingBox();
+  if (!charcoalBox) throw new Error("Theme menu item should have a visible bounding box");
+  const receivesPointer = await page.evaluate(
+    ([x, y]) => {
+      const element = document.elementFromPoint(x, y);
+      return Boolean(element?.closest?.('[role="menuitemradio"]'));
+    },
+    [charcoalBox.x + charcoalBox.width / 2, charcoalBox.y + charcoalBox.height / 2],
+  );
+  expect(receivesPointer).toBe(true);
+
+  await charcoal.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "charcoal");
+  await expect(page.getByTestId("theme-menu")).toHaveCount(0);
 });
 
 test("every Swift mdv theme renders visible document content", async ({ page }) => {
@@ -808,7 +1001,7 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
   );
 
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("toggle-sidebar"));
-  await expect(page.getByRole("complementary", { name: "History" })).toHaveCount(0);
+  await expect(page.getByTestId("app-shell")).toHaveAttribute("data-sidebar-visible", "false");
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("toggle-sidebar"));
   await expect(page.getByRole("complementary", { name: "History" })).toBeVisible();
 

@@ -25,6 +25,13 @@ themes (Charcoal).
 
 ![Sample landscape](images/sample.png)
 
+## HTML image tag
+
+Raw HTML image tags are accepted by the Swift renderer and should go
+through the same local image resolution path as markdown image syntax.
+
+<img src="images/icon.png" alt="HTML icon">
+
 ## Portrait orientation
 
 Aspect ratio is preserved.

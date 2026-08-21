@@ -45,7 +45,7 @@
     {
       "path": "test-docs/images.md",
       "mustContain": ["sample.png", "banner.png"],
-      "renderedMustContain": ["Images", "Relative path", "Missing reference"],
+      "renderedMustContain": ["Images", "Relative path", "HTML image tag", "Missing reference"],
       "minHeadings": 2,
       "minBlocks": 5
     },

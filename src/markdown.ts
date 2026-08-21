@@ -38,6 +38,7 @@ export function renderMarkdown(
   markdown: string,
   { loadRemoteImages = false, typographer = true }: RenderMarkdownOptions = {},
 ): RenderedDocument {
+  const normalizedMarkdown = normalizeHtmlImageTags(markdown);
   const toc: TocHeading[] = [];
   const md = new MarkdownIt({
     html: false,
@@ -82,7 +83,7 @@ export function renderMarkdown(
       text,
       toc.map((heading) => heading.id),
     );
-    const blockIndex = blockIndexForOffset(markdown, tokens[idx].map?.[0] ?? 0);
+    const blockIndex = blockIndexForOffset(normalizedMarkdown, tokens[idx].map?.[0] ?? 0);
     toc.push({ id, level, text, blockIndex });
     tokens[idx].attrSet("id", id);
     return defaultRender(tokens, idx, options, env, self);
@@ -121,12 +122,12 @@ export function renderMarkdown(
       }
       token.attrSet(
         "data-mdv-block-index",
-        String(blockIndexForOffset(markdown, token.map[0] ?? 0)),
+        String(blockIndexForOffset(normalizedMarkdown, token.map[0] ?? 0)),
       );
     }
   });
 
-  const html = md.render(markdown);
+  const html = md.render(normalizedMarkdown);
   return { html, toc, blocks: splitBlocks(markdown) };
 }
 
@@ -218,6 +219,40 @@ function escapeHtml(value: string): string {
 
 function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/'/g, "&#39;");
+}
+
+function normalizeHtmlImageTags(markdown: string): string {
+  return markdown.replace(/<img\b[^>]*>/gi, (tag) => {
+    const attrs = parseHtmlAttributes(tag);
+    const src = attrs.get("src")?.trim();
+    if (!src) return tag;
+    const alt = attrs.get("alt") ?? "";
+    const title = attrs.get("title");
+    const destination = `<${src.replace(/>/g, "%3E")}>`;
+    return title
+      ? `![${escapeMarkdownLabel(alt)}](${destination} "${escapeMarkdownTitle(title)}")`
+      : `![${escapeMarkdownLabel(alt)}](${destination})`;
+  });
+}
+
+function parseHtmlAttributes(tag: string): Map<string, string> {
+  const attrs = new Map<string, string>();
+  const source = tag.replace(/^<img\b/i, "").replace(/\/?>$/i, "");
+  const attrPattern = /([^\s=/"'>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
+  let match = attrPattern.exec(source);
+  while (match !== null) {
+    attrs.set(match[1].toLowerCase(), match[2] ?? match[3] ?? match[4] ?? "");
+    match = attrPattern.exec(source);
+  }
+  return attrs;
+}
+
+function escapeMarkdownLabel(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\]/g, "\\]");
+}
+
+function escapeMarkdownTitle(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 const transparentPixel =

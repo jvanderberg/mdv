@@ -118,14 +118,19 @@ describe("markdown parity contract", () => {
     const html = renderMarkdown(
       [
         "![local](images/icon.png)",
+        '<img src="images/from-html.png" alt="HTML icon">',
         "![remote](https://example.com/tracker.png)",
+        '<img src="https://example.com/html-tracker.png" alt="HTML remote">',
         "![data](data:image/png;base64,AAAA)",
         "![bad](data:image/png;base64,)",
       ].join("\n\n"),
     ).html;
 
     expect(html).toContain('data-mdv-local-image="images/icon.png"');
+    expect(html).toContain('data-mdv-local-image="images/from-html.png"');
+    expect(html).toContain('alt="HTML icon"');
     expect(html).toContain("Remote image blocked");
+    expect(html.match(/Remote image blocked/g)).toHaveLength(2);
     expect(html).toContain('src="data:image/png;base64,AAAA"');
     expect(html).toContain("image not found: inline data:");
   });
