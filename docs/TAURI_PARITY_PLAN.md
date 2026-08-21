@@ -538,9 +538,8 @@ Tests:
 
 Status: in progress. Scroll restore, visible-block tracking, bookmark slot
 jumps, bookmark fingerprint relocation, drag reorder, and the transient
-placeholder row are covered. Bookmark title fidelity is covered for the
-current harness. Context-menu move commands and missing-file bookmark states
-remain.
+placeholder row, bookmark title fidelity, and missing-file bookmark states are
+covered for the current harness. Context-menu move commands remain.
 
 Goal: make reading position and saved spots durable.
 
@@ -556,6 +555,7 @@ Goal: make reading position and saved spots durable.
 - Done: implement transient placeholder `Cmd+Shift+0` / `Cmd+0`.
 - Done: add current bookmark/placeholder visual state.
 - Done: placeholder appears as a pinned row, can jump, reveal, and clear.
+- Done: missing bookmark rows are dimmed, inert, and removable.
 
 Tests:
 
@@ -566,8 +566,8 @@ Tests:
   set/jump/reveal/clear.
 - Done: Playwright coverage that active find matches do not override the
   visible block when bookmarking.
-- Add Playwright coverage for missing-file bookmark states and move
-  top/bottom commands.
+- Done: Playwright coverage for missing-file bookmark states.
+- Add Playwright coverage for move top/bottom commands.
 
 ### Phase 5 — Images And Privacy
 

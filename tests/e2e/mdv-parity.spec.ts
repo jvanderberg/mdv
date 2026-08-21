@@ -568,6 +568,41 @@ test("history and bookmark deletion workflows update persisted lists", async ({ 
   await expect(page.getByTestId("history-list")).toContainText("No history yet.");
 });
 
+test("missing bookmark rows are dimmed, inert, and removable", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    ([path]) => {
+      window.__MDV_BOOKMARKS__?.push({
+        id: 404,
+        path,
+        title: "Missing Bookmark",
+        sort_order: 0,
+        created_at: Date.now(),
+        block_index: 0,
+        block_fingerprint: "missing",
+        file_exists: false,
+      });
+    },
+    [abs("test-docs/missing.md")],
+  );
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
+
+  const missingRow = page.locator(".mdv-document-row[data-row-variant='bookmark']").first();
+  await expect(missingRow).toContainText("Missing Bookmark");
+  await expect(missingRow).toHaveCSS("opacity", "0.6");
+  await expect(page.getByLabel("Reveal bookmark Missing Bookmark in Finder")).toHaveCount(0);
+  await missingRow.getByRole("button").first().click();
+  await expect(page.getByText("README.md").first()).toBeVisible();
+
+  await page.getByLabel("Remove bookmark Missing Bookmark").click();
+  await expect(missingRow).toHaveCount(0);
+});
+
 test("history, search hits, and bookmarks can reveal their file in Finder", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

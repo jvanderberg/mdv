@@ -1100,9 +1100,11 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
             ids.splice(targetIndex, 0, sourceId);
             void reorderBookmarks(ids);
           }}
-          onReveal={() => void revealPath(bookmark.path)}
+          onReveal={bookmark.file_exists ? () => void revealPath(bookmark.path) : undefined}
           onRemove={() => void removeBookmark(bookmark.id)}
-          onClick={() => void openBookmark(bookmark.id)}
+          onClick={() => {
+            if (bookmark.file_exists) void openBookmark(bookmark.id);
+          }}
         />
       ))}
     </>
