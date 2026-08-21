@@ -562,7 +562,7 @@ export function resolveBookmarkForTest(
   return resolveBookmarkAnchor(blocks, index, fingerprint);
 }
 
-function readTheme(): Theme {
+export function readTheme(): Theme {
   const stored = localStorage.getItem("mdv.theme");
   if (stored === "paper") return "high-contrast";
   if (stored === "solarized") return "solarium-daylight";
@@ -592,7 +592,7 @@ function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get:
   });
 }
 
-function smartTypographyAllowed(theme: Theme): boolean {
+export function smartTypographyAllowed(theme: Theme): boolean {
   return !["phosphor", "standard-erin-light", "standard-erin-dark"].includes(theme);
 }
 

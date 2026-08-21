@@ -43,6 +43,10 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Theme resolution and smart-typography opt-outs now have direct unit coverage:
+  stored Swift-era aliases (`paper`, `solarized`) normalize to the Tauri theme
+  IDs, invalid stored values fall back to High Contrast, and Phosphor plus
+  Standard Erin themes disable smart typography.
 - Cross-document fragment links now have browser-level parity coverage: clicking
   `syntax.md#escaping` from the links fixture opens the target document, records
   `data-current-fragment="escaping"`, and verifies the target heading is
@@ -560,7 +564,7 @@ missing-file bookmark states are covered.
 
 Goal: make reading position and saved spots durable.
 
-- Partially done: scroll positions persist with block estimate, fingerprint,
+- Done: scroll positions persist with block estimate, fingerprint,
   and mtime.
 - Done: restore only when mtime matches.
 - Done: track exact visible/top block in the React viewer.
@@ -614,11 +618,11 @@ Tests:
 
 Goal: bring over the “awesome code blocks” work.
 
-- Decide engine:
+- Done: Decide engine:
   - Done: `highlight.js` short-term renderer with Swift-compatible supported
     language aliases.
-  - Remaining: tree-sitter/WASM or Rust-side highlighter if exact capture
-    palettes matter.
+  - Future optional replacement: tree-sitter/WASM or Rust-side highlighter if
+    exact capture palettes need another backend.
 - Done: Implement language label.
 - Done: Implement copy button.
 - Done: Implement wrap toggle.
@@ -659,7 +663,7 @@ Goal: match the reading experience.
 
 Tests:
 
-- Unit tests for theme resolution and smart typography.
+- Done: Unit tests for theme resolution and smart typography.
 - Playwright visual/screenshot assertions for every theme across desktop and
   mobile.
 

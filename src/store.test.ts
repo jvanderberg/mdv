@@ -21,6 +21,32 @@ describe("store persistence helpers", () => {
     expect(readStoredNumber("mdv.zoom", 1)).toBe(1.2);
   });
 
+  it("resolves stored Swift theme aliases and invalid values", async () => {
+    const { readTheme } = await import("./store");
+
+    localStorage.setItem("mdv.theme", "paper");
+    expect(readTheme()).toBe("high-contrast");
+
+    localStorage.setItem("mdv.theme", "solarized");
+    expect(readTheme()).toBe("solarium-daylight");
+
+    localStorage.setItem("mdv.theme", "standard-erin-dark");
+    expect(readTheme()).toBe("standard-erin-dark");
+
+    localStorage.setItem("mdv.theme", "bogus");
+    expect(readTheme()).toBe("high-contrast");
+  });
+
+  it("matches Swift smart typography theme opt-outs", async () => {
+    const { smartTypographyAllowed } = await import("./store");
+
+    expect(smartTypographyAllowed("high-contrast")).toBe(true);
+    expect(smartTypographyAllowed("sevilla")).toBe(true);
+    expect(smartTypographyAllowed("phosphor")).toBe(false);
+    expect(smartTypographyAllowed("standard-erin-light")).toBe(false);
+    expect(smartTypographyAllowed("standard-erin-dark")).toBe(false);
+  });
+
   it("opens selected documents in a new native window without replacing state", async () => {
     const { useAppStore } = await import("./store");
     const opened: string[] = [];
