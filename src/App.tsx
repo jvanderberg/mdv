@@ -451,13 +451,16 @@ function Viewer() {
   const currentFindMatchIndex = useAppStore((state) => state.currentFindMatchIndex);
   const currentFragment = useAppStore((state) => state.currentFragment);
   const html = useAppStore((state) => state.html);
+  const pendingBlockIndex = useAppStore((state) => state.pendingBlockIndex);
   const pendingScrollTop = useAppStore((state) => state.pendingScrollTop);
+  const consumePendingBlockIndex = useAppStore((state) => state.consumePendingBlockIndex);
   const consumePendingScrollTop = useAppStore((state) => state.consumePendingScrollTop);
   const api = useAppStore((state) => state.api);
   const navigateToHref = useAppStore((state) => state.navigateToHref);
   const nextFindMatch = useAppStore((state) => state.nextFindMatch);
   const previousFindMatch = useAppStore((state) => state.previousFindMatch);
   const saveScrollPosition = useAppStore((state) => state.saveScrollPosition);
+  const setActiveBlockIndex = useAppStore((state) => state.setActiveBlockIndex);
   const setActiveTocHeadingId = useAppStore((state) => state.setActiveTocHeadingId);
   const setFindQuery = useAppStore((state) => state.setFindQuery);
   const setViewerScrollTop = useAppStore((state) => state.setViewerScrollTop);
@@ -477,6 +480,23 @@ function Viewer() {
       if (scrollRef.current) scrollRef.current.scrollTop = scrollTop;
     });
   }, [consumePendingScrollTop, document, pendingScrollTop]);
+
+  useEffect(() => {
+    if (!document || pendingBlockIndex === null) return;
+    const blockIndex = consumePendingBlockIndex();
+    if (blockIndex === null) return;
+    ignoreScrollUntilRef.current = Date.now() + 250;
+    window.requestAnimationFrame(() => {
+      const block = scrollRef.current?.querySelector<HTMLElement>(
+        `[data-mdv-block-index="${blockIndex}"]`,
+      );
+      if (block) {
+        block.scrollIntoView({ block: "start" });
+        return;
+      }
+      if (scrollRef.current) scrollRef.current.scrollTop = blockIndex * 220;
+    });
+  }, [consumePendingBlockIndex, document, pendingBlockIndex]);
 
   useEffect(() => {
     if (!document || !scrollRef.current) return;
@@ -543,13 +563,14 @@ function Viewer() {
     if (!element) return;
     const onScroll = () => {
       setViewerScrollTop(element.scrollTop);
+      setActiveBlockIndex(topVisibleBlockIndex(element));
       setActiveTocHeadingId(topVisibleHeadingId(element));
       scheduleScrollSave(element.scrollTop);
     };
     element.addEventListener("scroll", onScroll);
     onScroll();
     return () => element.removeEventListener("scroll", onScroll);
-  }, [html, setActiveTocHeadingId, setViewerScrollTop]);
+  }, [html, setActiveBlockIndex, setActiveTocHeadingId, setViewerScrollTop]);
 
   const scheduleScrollSave = (scrollTop: number) => {
     if (Date.now() < ignoreScrollUntilRef.current) return;
@@ -1072,6 +1093,19 @@ function readStoredNumber(key: string, fallback: number): number {
 
 function clampBookmarksHeight(height: number, maxHeight: number): number {
   return Math.max(120, Math.min(Math.max(120, maxHeight), Math.round(height)));
+}
+
+function topVisibleBlockIndex(scroller: HTMLElement): number {
+  const blocks = Array.from(scroller.querySelectorAll<HTMLElement>("[data-mdv-block-index]"));
+  if (blocks.length === 0) return 0;
+
+  const threshold = scroller.getBoundingClientRect().top + 24;
+  let active = blocks[0];
+  for (const block of blocks) {
+    if (block.getBoundingClientRect().top > threshold) break;
+    active = block;
+  }
+  return Number(active.dataset.mdvBlockIndex ?? 0);
 }
 
 function topVisibleHeadingId(scroller: HTMLElement): string | null {

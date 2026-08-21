@@ -32,6 +32,13 @@ describe("markdown parity contract", () => {
     expect(rendered.toc.map((h) => h.id)).toEqual(["intro", "repeat", "repeat-2"]);
   });
 
+  it("marks rendered top-level blocks with mdv block indices", () => {
+    const rendered = renderMarkdown("# Intro\n\nParagraph.\n\n> Quote");
+    expect(rendered.html).toContain('data-mdv-block-index="0"');
+    expect(rendered.html).toContain('data-mdv-block-index="1"');
+    expect(rendered.html).toContain('data-mdv-block-index="2"');
+  });
+
   it("matches mdv fragment slug rules", () => {
     expect(slugifyHeading(" Markdown links (in-app navigation) ")).toBe(
       "markdown-links-in-app-navigation",

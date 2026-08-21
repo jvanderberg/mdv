@@ -318,6 +318,48 @@ test("bookmarks pane resizes and persists its height", async ({ page }) => {
   expect(storedHeight).toBeGreaterThan(initialHeight + 2);
 });
 
+test("bookmarks and scroll persistence use the top visible rendered block", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+
+  const viewer = page.getByTestId("viewer-scroll");
+  await page
+    .locator("[data-mdv-block-index='6']")
+    .evaluate((element) => element.scrollIntoView({ block: "start" }));
+  await page.waitForTimeout(180);
+  await clickToolbarBookmark(page);
+  const bookmarkIndex = await page.evaluate(() => window.__MDV_BOOKMARKS__?.[0]?.block_index);
+  expect(bookmarkIndex).toBe(6);
+
+  await page.waitForTimeout(180);
+  const scrollPositionIndex = await page.evaluate(
+    ([path]) => window.__MDV_SCROLL_POSITIONS__?.[path]?.block_index,
+    [abs("test-docs/toc-stress.md")],
+  );
+  expect(scrollPositionIndex).toBe(6);
+
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+  await expect
+    .poll(async () =>
+      viewer.evaluate((element) => {
+        const block = element.querySelector("[data-mdv-block-index='6']");
+        if (!block) return Number.POSITIVE_INFINITY;
+        return Math.abs(block.getBoundingClientRect().top - element.getBoundingClientRect().top);
+      }),
+    )
+    .toBeLessThan(32);
+});
+
 test("history and bookmark deletion workflows update persisted lists", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -587,6 +629,15 @@ async function installMockApi(page: Page) {
           scroll_top: number;
         }
       >();
+      const scrollPositionSnapshot: Record<
+        string,
+        {
+          path: string;
+          block_index: number;
+          block_fingerprint: string;
+          scroll_top: number;
+        }
+      > = {};
       let dropHandler: ((paths: string[]) => void | Promise<void>) | undefined;
       let openHandler: ((paths: string[]) => void | Promise<void>) | undefined;
       let menuHandler: ((command: string) => void | Promise<void>) | undefined;
@@ -704,12 +755,14 @@ async function installMockApi(page: Page) {
           return scrollPositions.get(path) ?? null;
         },
         async saveScrollPosition({ path, blockIndex, blockFingerprint, scrollTop }) {
-          scrollPositions.set(path, {
+          const position = {
             path,
             block_index: blockIndex,
             block_fingerprint: blockFingerprint,
             scroll_top: scrollTop,
-          });
+          };
+          scrollPositions.set(path, position);
+          scrollPositionSnapshot[path] = position;
         },
         async listHistory() {
           return history;
@@ -782,6 +835,8 @@ async function installMockApi(page: Page) {
       window.__MDV_REVEAL_CALLS__ = revealCalls;
       window.__MDV_EDITOR_CALLS__ = editorCalls;
       window.__MDV_CLI_INSTALL_CALLS__ = cliInstallCalls;
+      window.__MDV_BOOKMARKS__ = bookmarks;
+      window.__MDV_SCROLL_POSITIONS__ = scrollPositionSnapshot;
     },
     { directories, docs, imagePaths },
   );

@@ -78,6 +78,18 @@ export function renderMarkdown(
     return defaultImageRender(tokens, idx, options, env, self);
   };
 
+  md.core.ruler.after("block", "mdv_block_index", (state) => {
+    for (const token of state.tokens) {
+      if (token.level !== 0 || !token.map || token.nesting === -1 || token.type === "inline") {
+        continue;
+      }
+      token.attrSet(
+        "data-mdv-block-index",
+        String(blockIndexForOffset(markdown, token.map[0] ?? 0)),
+      );
+    }
+  });
+
   const html = md.render(markdown);
   return { html, toc, blocks: splitBlocks(markdown) };
 }

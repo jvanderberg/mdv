@@ -26,6 +26,7 @@ export interface AppState {
   currentFindMatchIndex: number;
   currentFragment: string | null;
   pendingScrollTop: number | null;
+  pendingBlockIndex: number | null;
   theme: Theme;
   zoom: number;
   inspectorVisible: boolean;
@@ -34,6 +35,7 @@ export interface AppState {
   loadRemoteImages: boolean;
   smartTypography: boolean;
   viewerScrollTop: number;
+  activeBlockIndex: number;
   placeholder: NavigationSnapshot | null;
   backStack: NavigationSnapshot[];
   forwardStack: NavigationSnapshot[];
@@ -56,8 +58,10 @@ export interface AppState {
   searchHistory: (query: string) => Promise<void>;
   saveScrollPosition: (scrollTop: number) => Promise<void>;
   setViewerScrollTop: (scrollTop: number) => void;
+  setActiveBlockIndex: (blockIndex: number) => void;
   setActiveTocHeadingId: (id: string | null) => void;
   consumePendingScrollTop: () => number | null;
+  consumePendingBlockIndex: () => number | null;
   addBookmarkAtCurrentSpot: () => Promise<void>;
   openBookmark: (id: number) => Promise<void>;
   openBookmarkSlot: (slot: number) => Promise<void>;
@@ -103,6 +107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentFindMatchIndex: 0,
   currentFragment: null,
   pendingScrollTop: null,
+  pendingBlockIndex: null,
   theme: readTheme(),
   zoom: readStoredNumber("mdv.zoom", 1),
   inspectorVisible: localStorage.getItem("mdv.inspector") !== "false",
@@ -111,6 +116,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadRemoteImages: localStorage.getItem("mdv.loadRemoteImages") === "true",
   smartTypography: localStorage.getItem("mdv.smartTypography") !== "false",
   viewerScrollTop: 0,
+  activeBlockIndex: 0,
   placeholder: null,
   backStack: [],
   forwardStack: [],
@@ -180,8 +186,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentFindMatchIndex: 0,
       currentFragment: null,
       pendingScrollTop: scrollPosition?.scroll_top ?? 0,
+      pendingBlockIndex: scrollPosition?.block_index ?? null,
       globalHits: [],
       activeBookmarkId: null,
+      activeBlockIndex: scrollPosition?.block_index ?? 0,
     });
     await get().refreshLists();
   },
@@ -284,9 +292,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async saveScrollPosition(scrollTop) {
-    const { api, blocks, document } = get();
+    const { activeBlockIndex, api, blocks, document } = get();
     if (!document || blocks.length === 0) return;
-    const blockIndex = Math.max(0, Math.min(blocks.length - 1, Math.floor(scrollTop / 220)));
+    const blockIndex = Math.max(0, Math.min(blocks.length - 1, activeBlockIndex));
     await api.saveScrollPosition({
       path: document.path,
       blockIndex,
@@ -297,6 +305,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setViewerScrollTop(scrollTop) {
     set({ viewerScrollTop: Math.max(0, scrollTop) });
+  },
+
+  setActiveBlockIndex(blockIndex) {
+    const nextIndex = Math.max(0, Math.min(get().blocks.length - 1, blockIndex));
+    if (get().activeBlockIndex === nextIndex) return;
+    set({ activeBlockIndex: nextIndex });
   },
 
   setActiveTocHeadingId(id) {
@@ -310,10 +324,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     return scrollTop;
   },
 
+  consumePendingBlockIndex() {
+    const blockIndex = get().pendingBlockIndex;
+    set({ pendingBlockIndex: null });
+    return blockIndex;
+  },
+
   async addBookmarkAtCurrentSpot() {
-    const { api, blocks, document, findMatches, toc, viewerScrollTop } = get();
+    const { activeBlockIndex, api, blocks, document, findMatches, toc } = get();
     if (!document) return;
-    const blockIndex = findMatches[0] ?? blockIndexForScroll(viewerScrollTop, blocks.length);
+    const blockIndex = findMatches[0] ?? activeBlockIndex;
     const bookmark = await api.addBookmark({
       path: document.path,
       title: toc[0]?.text ?? document.filename,
@@ -328,7 +348,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const bookmark = get().bookmarks.find((entry) => entry.id === id);
     if (!bookmark) return;
     await get().openDocument(bookmark.path);
-    set({ activeBookmarkId: bookmark.id, pendingScrollTop: bookmark.block_index * 220 });
+    set({ activeBookmarkId: bookmark.id, pendingBlockIndex: bookmark.block_index });
   },
 
   async openBookmarkSlot(slot) {
@@ -457,11 +477,6 @@ export function readStoredNumber(key: string, fallback: number): number {
   if (stored === null) return fallback;
   const value = Number(stored);
   return Number.isFinite(value) ? value : fallback;
-}
-
-function blockIndexForScroll(scrollTop: number, blockCount: number): number {
-  if (blockCount <= 0) return 0;
-  return Math.max(0, Math.min(blockCount - 1, Math.floor(scrollTop / 220)));
 }
 
 function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get: () => AppState) {

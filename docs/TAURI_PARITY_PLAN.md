@@ -43,7 +43,6 @@ Current high-priority exact-parity gaps from the latest captures:
 - Match inspector typography/spacing and collapsed Bookmarks placement.
 - Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
   native toolbar strategy if web SVG parity remains visibly off.
-- Implement true top-visible block tracking.
 
 Recently completed exact-parity slices:
 
@@ -72,6 +71,12 @@ Recently completed exact-parity slices:
   minimum useful height while preserving TOC room, and persists its height in
   `mdv.bookmarksHeight`. Covered by the Playwright parity test `bookmarks pane
   resizes and persists its height`.
+- Rendered Markdown top-level blocks now carry stable `data-mdv-block-index`
+  metadata, and bookmarks/scroll persistence use the actual top visible rendered
+  block instead of a pixel-height approximation. Covered by the unit test
+  `marks rendered top-level blocks with mdv block indices` and the Playwright
+  parity test `bookmarks and scroll persistence use the top visible rendered
+  block`.
 
 ## Current Tauri Baseline
 
