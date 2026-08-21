@@ -705,85 +705,11 @@ fn open_in_editor(editor_path: String, document_path: String) -> MdvResult<()> {
         return Err(MdvError::App(format!("Document not found: {document_path}")));
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let mut command = Command::new("/usr/bin/open");
-        if let Some(bundle_id) = app_bundle_identifier(Path::new(&editor_path)) {
-            command.arg("-b").arg(bundle_id);
-        } else {
-            command.arg("-a").arg(editor_path);
-        }
-        command
-            .arg(document_path)
-            .spawn()
-            .map_err(|error| MdvError::App(error.to_string()))?;
-        return Ok(());
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        Command::new(editor_path)
-            .arg(document_path)
-            .spawn()
-            .map_err(|error| MdvError::App(error.to_string()))?;
-        Ok(())
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn app_bundle_identifier(app_path: &Path) -> Option<String> {
-    let plist = app_path.join("Contents").join("Info.plist");
-    if !plist.is_file() {
-        return None;
-    }
-    let output = Command::new("/usr/libexec/PlistBuddy")
-        .arg("-c")
-        .arg("Print :CFBundleIdentifier")
-        .arg(plist)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let bundle_id = String::from_utf8(output.stdout).ok()?.trim().to_string();
-    (!bundle_id.is_empty()).then_some(bundle_id)
-}
-
-#[tauri::command]
-fn install_cli(app: AppHandle) -> MdvResult<String> {
-    const DESTINATION: &str = "/usr/local/bin/mdv";
-    let source = cli_source_path(&app)
-        .ok_or_else(|| MdvError::App("The bundled mdv CLI helper was not found.".into()))?;
-
-    if fs::read_link(DESTINATION)
-        .map(|target| target == source)
-        .unwrap_or(false)
-    {
-        return Ok(format!("{DESTINATION} already points to this app."));
-    }
-
-    if symlink_unprivileged(&source, Path::new(DESTINATION)).is_ok() {
-        return Ok(format!(
-            "Command line tool installed: {DESTINATION} -> {}",
-            source.to_string_lossy()
-        ));
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        symlink_with_admin_auth(&source, Path::new(DESTINATION))?;
-        return Ok(format!(
-            "Command line tool installed: {DESTINATION} -> {}",
-            source.to_string_lossy()
-        ));
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        Err(MdvError::App(format!(
-            "Could not install {DESTINATION}; check directory permissions."
-        )))
-    }
+    Command::new(editor_path)
+        .arg(document_path)
+        .spawn()
+        .map_err(|error| MdvError::App(error.to_string()))?;
+    Ok(())
 }
 
 fn app_db_path(app: &AppHandle) -> MdvResult<PathBuf> {
@@ -1067,17 +993,6 @@ fn emit_shared_state_changed(app: &AppHandle, kind: &str) {
     let _ = app.emit("mdv://shared-state-changed", kind);
 }
 
-fn cli_source_path(app: &AppHandle) -> Option<PathBuf> {
-    resource_candidate(app, "mdv")
-        .or_else(|| resource_candidate(app, "_up_/bin/mdv"))
-        .or_else(|| {
-            env::current_dir()
-                .ok()
-                .map(|dir| dir.join("bin").join("mdv"))
-                .filter(|path| path.is_file())
-        })
-}
-
 fn help_document_path(app: &AppHandle) -> Option<PathBuf> {
     resource_candidate(app, "Help.md")
         .or_else(|| resource_candidate(app, "_up_/assets/Help.md"))
@@ -1097,47 +1012,6 @@ fn resource_candidate(app: &AppHandle, name: &str) -> Option<PathBuf> {
         .filter(|path| path.is_file())
 }
 
-fn symlink_unprivileged(source: &Path, destination: &Path) -> std::io::Result<()> {
-    if let Some(parent) = destination.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    if destination.exists() || fs::read_link(destination).is_ok() {
-        fs::remove_file(destination)?;
-    }
-    std::os::unix::fs::symlink(source, destination)
-}
-
-#[cfg(target_os = "macos")]
-fn symlink_with_admin_auth(source: &Path, destination: &Path) -> MdvResult<()> {
-    let parent = destination
-        .parent()
-        .ok_or_else(|| MdvError::App("CLI destination has no parent directory.".into()))?;
-    let shell = format!(
-        "/bin/mkdir -p {} && /bin/ln -sf {} {}",
-        shell_quote(parent),
-        shell_quote(source),
-        shell_quote(destination)
-    );
-    let escaped = shell.replace('\\', "\\\\").replace('"', "\\\"");
-    let script = format!("do shell script \"{escaped}\" with administrator privileges");
-    let status = Command::new("/usr/bin/osascript")
-        .arg("-e")
-        .arg(script)
-        .status()
-        .map_err(|error| MdvError::App(error.to_string()))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(MdvError::App("CLI install was cancelled or failed.".into()))
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn shell_quote(path: &Path) -> String {
-    let value = path.to_string_lossy();
-    format!("'{}'", value.replace('\'', "'\\''"))
-}
-
 fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let app_menu = Submenu::with_items(
         app,
@@ -1145,13 +1019,6 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         &[
             &PredefinedMenuItem::about(app, None, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "install-cli", "Install Command Line Tool…", true, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, None)?,
-            &PredefinedMenuItem::hide_others(app, None)?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::quit(app, None)?,
         ],
@@ -1161,13 +1028,13 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "File",
         true,
         &[
-            &MenuItem::with_id(app, "open", "Open…", true, Some("Cmd+O"))?,
+            &MenuItem::with_id(app, "open", "Open…", true, Some("CmdOrCtrl+O"))?,
             &MenuItem::with_id(
                 app,
                 "open-new-window",
                 "Open in New Window…",
                 true,
-                Some("Cmd+Shift+O"),
+                Some("CmdOrCtrl+Shift+O"),
             )?,
             &PredefinedMenuItem::separator(app)?,
             &Submenu::with_items(
@@ -1180,7 +1047,7 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                         "edit-current-file",
                         "Edit Current File",
                         true,
-                        Some("Cmd+E"),
+                        Some("CmdOrCtrl+E"),
                     )?,
                     &MenuItem::with_id(app, "choose-editor", "Choose Editor…", true, None::<&str>)?,
                     &MenuItem::with_id(app, "forget-editor", "Forget Editor", true, None::<&str>)?,
@@ -1203,13 +1070,13 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &PredefinedMenuItem::paste(app, None)?,
             &PredefinedMenuItem::select_all(app, None)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "find", "Find…", true, Some("Cmd+F"))?,
+            &MenuItem::with_id(app, "find", "Find…", true, Some("CmdOrCtrl+F"))?,
             &MenuItem::with_id(
                 app,
                 "search-history",
                 "Search History…",
                 true,
-                Some("Cmd+Shift+F"),
+                Some("CmdOrCtrl+Shift+F"),
             )?,
         ],
     )?;
@@ -1218,8 +1085,8 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Navigate",
         true,
         &[
-            &MenuItem::with_id(app, "back", "Back", true, Some("Cmd+ArrowLeft"))?,
-            &MenuItem::with_id(app, "forward", "Forward", true, Some("Cmd+ArrowRight"))?,
+            &MenuItem::with_id(app, "back", "Back", true, Some("CmdOrCtrl+ArrowLeft"))?,
+            &MenuItem::with_id(app, "forward", "Forward", true, Some("CmdOrCtrl+ArrowRight"))?,
         ],
     )?;
     let view = Submenu::with_items(
@@ -1232,11 +1099,11 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 "toggle-sidebar",
                 "Hide Sidebar",
                 true,
-                Some("Cmd+Ctrl+S"),
+                Some("CmdOrCtrl+Shift+S"),
             )?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "zoom-in", "Zoom In", true, Some("Cmd+="))?,
-            &MenuItem::with_id(app, "zoom-out", "Zoom Out", true, Some("Cmd+-"))?,
+            &MenuItem::with_id(app, "zoom-in", "Zoom In", true, Some("CmdOrCtrl+="))?,
+            &MenuItem::with_id(app, "zoom-out", "Zoom Out", true, Some("CmdOrCtrl+-"))?,
             &MenuItem::with_id(app, "actual-size", "Actual Size", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
             &CheckMenuItem::with_id(
@@ -1269,22 +1136,22 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 "bookmark-current-spot",
                 "Bookmark Current Spot",
                 true,
-                Some("Cmd+D"),
+                Some("CmdOrCtrl+D"),
             )?,
-            &MenuItem::with_id(app, "set-placeholder", "Set Placeholder", true, Some("Cmd+Shift+0"))?,
+            &MenuItem::with_id(app, "set-placeholder", "Set Placeholder", true, Some("CmdOrCtrl+Shift+0"))?,
             &MenuItem::with_id(
                 app,
                 "jump-to-placeholder",
                 "Jump to Placeholder",
                 true,
-                Some("Cmd+0"),
+                Some("CmdOrCtrl+0"),
             )?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "bookmark-slot-1", "Slot 1 — Empty", false, Some("Cmd+1"))?,
-            &MenuItem::with_id(app, "bookmark-slot-2", "Slot 2 — Empty", false, Some("Cmd+2"))?,
-            &MenuItem::with_id(app, "bookmark-slot-3", "Slot 3 — Empty", false, Some("Cmd+3"))?,
-            &MenuItem::with_id(app, "bookmark-slot-4", "Slot 4 — Empty", false, Some("Cmd+4"))?,
-            &MenuItem::with_id(app, "bookmark-slot-5", "Slot 5 — Empty", false, Some("Cmd+5"))?,
+            &MenuItem::with_id(app, "bookmark-slot-1", "Slot 1 — Empty", false, Some("CmdOrCtrl+1"))?,
+            &MenuItem::with_id(app, "bookmark-slot-2", "Slot 2 — Empty", false, Some("CmdOrCtrl+2"))?,
+            &MenuItem::with_id(app, "bookmark-slot-3", "Slot 3 — Empty", false, Some("CmdOrCtrl+3"))?,
+            &MenuItem::with_id(app, "bookmark-slot-4", "Slot 4 — Empty", false, Some("CmdOrCtrl+4"))?,
+            &MenuItem::with_id(app, "bookmark-slot-5", "Slot 5 — Empty", false, Some("CmdOrCtrl+5"))?,
         ],
     )?;
     let window = Submenu::with_items(
@@ -1302,7 +1169,7 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         app,
         "Help",
         true,
-        &[&MenuItem::with_id(app, "help", "mdv Help", true, Some("Cmd+?"))?],
+        &[&MenuItem::with_id(app, "help", "mdv Help", true, Some("CmdOrCtrl+?"))?],
     )?;
 
     Menu::with_items(
@@ -1374,7 +1241,6 @@ pub fn run() {
                         queue_open_paths(app, vec![help.to_string_lossy().into_owned()]);
                     }
                 }
-                "install-cli" => emit_menu_command(app, "install-cli"),
                 id => emit_menu_command(app, id),
             }
         })
@@ -1409,21 +1275,20 @@ pub fn run() {
             load_scroll_position,
             take_pending_open_paths,
             open_in_editor,
-            install_cli,
             update_menu_state
         ])
         .build(tauri::generate_context!())
         .expect("error while building mdv")
-        .run(|app, event| {
-            #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
-            if let tauri::RunEvent::Opened { urls } = event {
+        .run(|_app, _event| {
+            #[cfg(any(target_os = "ios", target_os = "android"))]
+            if let tauri::RunEvent::Opened { urls } = _event {
                 let paths = urls
                     .into_iter()
                     .filter_map(|url| url.to_file_path().ok())
                     .filter(|path| path.is_dir() || is_supported_document(path))
                     .map(|path| path.to_string_lossy().into_owned())
                     .collect::<Vec<_>>();
-                queue_open_paths(app, paths);
+                queue_open_paths(_app, paths);
             }
         });
 }

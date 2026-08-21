@@ -20,7 +20,6 @@ export interface MdvApi {
   openDirectory(): Promise<string | null>;
   chooseEditor(): Promise<string | null>;
   openInEditor(editorPath: string, documentPath: string): Promise<void>;
-  installCli(): Promise<string>;
   subscribeToFileDrops(onDrop: (paths: string[]) => void | Promise<void>): Promise<() => void>;
   subscribeToOpenRequests(onOpen: (paths: string[]) => void | Promise<void>): Promise<() => void>;
   subscribeToMenuCommands(
@@ -79,16 +78,11 @@ export const api: MdvApi = {
     const selected = await open({
       directory: false,
       multiple: false,
-      defaultPath: "/Applications",
-      filters: [{ name: "Applications", extensions: ["app"] }],
     });
     return typeof selected === "string" ? selected : null;
   },
   openInEditor(editorPath, documentPath) {
     return tauriInvoke("open_in_editor", { editorPath, documentPath });
-  },
-  installCli() {
-    return tauriInvoke("install_cli");
   },
   async subscribeToFileDrops(onDrop) {
     return getCurrentWebview().onDragDropEvent(async (event) => {

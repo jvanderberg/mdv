@@ -69,7 +69,6 @@ export interface TocHeading {
 declare global {
   interface Window {
     __MDV_TEST_API__?: import("./tauri").MdvApi;
-    __MDV_CLI_INSTALL_CALLS__?: string[];
     __MDV_CLIPBOARD__?: string;
     __MDV_CLIPBOARD_HTML__?: string;
     __MDV_CLIPBOARD_TYPES__?: string[];

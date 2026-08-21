@@ -777,6 +777,10 @@ test("find shortcuts route by focused pane and close with Escape", async ({ page
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("document-find")).toHaveCount(0);
 
+  await page.keyboard.press("Control+F");
+  await expect(page.getByTestId("document-find")).toBeFocused();
+  await page.keyboard.press("Escape");
+
   await page.getByRole("button", { name: "Search history" }).click();
   await expect(page.getByPlaceholder("Search history")).toBeFocused();
   await page.keyboard.press("Meta+F");
@@ -1639,18 +1643,9 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("edit-current-file"));
   const editorCalls = await page.evaluate(() => window.__MDV_EDITOR_CALLS__ ?? []);
   expect(editorCalls.at(-1)).toEqual({
-    editorPath: "/Applications/Visual Studio Code.app",
+    editorPath: "/usr/bin/code",
     documentPath: abs("test-docs/toc-stress.md"),
   });
-
-  page.once("dialog", async (dialog) => {
-    expect(dialog.message()).toContain("Command line tool installed");
-    await dialog.dismiss();
-  });
-  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("install-cli"));
-  await expect
-    .poll(async () => page.evaluate(() => window.__MDV_CLI_INSTALL_CALLS__?.length ?? 0))
-    .toBe(1);
 });
 
 test("native menu state exposes dynamic labels checks and enables", async ({ page }) => {
@@ -1772,7 +1767,7 @@ test("editing the current file keeps it open and reloads editor saves", async ({
   await expect
     .poll(async () => page.evaluate(() => window.__MDV_EDITOR_CALLS__ ?? []))
     .toContainEqual({
-      editorPath: "/Applications/Visual Studio Code.app",
+      editorPath: "/usr/bin/code",
       documentPath: path,
     });
   await expect(page.getByText("README.md").first()).toBeVisible();
@@ -2083,7 +2078,6 @@ async function installMockApi(page: Page) {
       const pendingDrops: string[][] = [];
       const pendingOpenRequests: string[][] = [];
       const editorCalls: Array<{ editorPath: string; documentPath: string }> = [];
-      const cliInstallCalls: string[] = [];
       const openNewWindowCalls: string[] = [];
       const bookmarks: Array<{
         id: number;
@@ -2123,14 +2117,10 @@ async function installMockApi(page: Page) {
           return Object.keys(directories)[0] ?? null;
         },
         async chooseEditor() {
-          return "/Applications/Visual Studio Code.app";
+          return "/usr/bin/code";
         },
         async openInEditor(_editorPath: string, _documentPath: string) {
           editorCalls.push({ editorPath: _editorPath, documentPath: _documentPath });
-        },
-        async installCli() {
-          cliInstallCalls.push("install");
-          return "Command line tool installed";
         },
         async subscribeToFileDrops(onDrop) {
           dropHandler = onDrop;
@@ -2328,7 +2318,6 @@ async function installMockApi(page: Page) {
       window.__MDV_EXTERNAL_CALLS__ = externalCalls;
       window.__MDV_REVEAL_CALLS__ = revealCalls;
       window.__MDV_EDITOR_CALLS__ = editorCalls;
-      window.__MDV_CLI_INSTALL_CALLS__ = cliInstallCalls;
       window.__MDV_OPEN_NEW_WINDOW_CALLS__ = openNewWindowCalls;
       window.__MDV_BOOKMARKS__ = bookmarks;
       window.__MDV_HISTORY__ = history;

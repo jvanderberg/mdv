@@ -30,7 +30,7 @@ describe("tauri bundle configuration", () => {
     expect(config.productName).toBe("mdv");
     expect(config.identifier).toBe("com.jvanderberg.mdv");
     expect(config.bundle.icon).toEqual(["../MDV.png"]);
-    expect(config.bundle.resources).toEqual(["../bin/mdv", "../assets/Help.md"]);
+    expect(config.bundle.resources).toEqual(["../assets/Help.md"]);
   });
 
   it("registers mdv document associations", () => {
@@ -57,31 +57,30 @@ describe("tauri bundle configuration", () => {
     const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
     const expectedItems = [
-      ["install-cli", "Install Command Line Tool…", null],
-      ["open", "Open…", "Cmd+O"],
-      ["open-new-window", "Open in New Window…", "Cmd+Shift+O"],
-      ["edit-current-file", "Edit Current File", "Cmd+E"],
+      ["open", "Open…", "CmdOrCtrl+O"],
+      ["open-new-window", "Open in New Window…", "CmdOrCtrl+Shift+O"],
+      ["edit-current-file", "Edit Current File", "CmdOrCtrl+E"],
       ["choose-editor", "Choose Editor…", null],
       ["forget-editor", "Forget Editor", null],
-      ["find", "Find…", "Cmd+F"],
-      ["search-history", "Search History…", "Cmd+Shift+F"],
-      ["back", "Back", "Cmd+ArrowLeft"],
-      ["forward", "Forward", "Cmd+ArrowRight"],
-      ["toggle-sidebar", "Hide Sidebar", "Cmd+Ctrl+S"],
-      ["zoom-in", "Zoom In", "Cmd+="],
-      ["zoom-out", "Zoom Out", "Cmd+-"],
+      ["find", "Find…", "CmdOrCtrl+F"],
+      ["search-history", "Search History…", "CmdOrCtrl+Shift+F"],
+      ["back", "Back", "CmdOrCtrl+ArrowLeft"],
+      ["forward", "Forward", "CmdOrCtrl+ArrowRight"],
+      ["toggle-sidebar", "Hide Sidebar", "CmdOrCtrl+Shift+S"],
+      ["zoom-in", "Zoom In", "CmdOrCtrl+="],
+      ["zoom-out", "Zoom Out", "CmdOrCtrl+-"],
       ["actual-size", "Actual Size", null],
       ["smart-typography", "Smart Typography", null],
       ["load-remote-images", "Load Remote Images", null],
-      ["bookmark-current-spot", "Bookmark Current Spot", "Cmd+D"],
-      ["set-placeholder", "Set Placeholder", "Cmd+Shift+0"],
-      ["jump-to-placeholder", "Jump to Placeholder", "Cmd+0"],
-      ["bookmark-slot-1", "Slot 1 — Empty", "Cmd+1"],
-      ["bookmark-slot-2", "Slot 2 — Empty", "Cmd+2"],
-      ["bookmark-slot-3", "Slot 3 — Empty", "Cmd+3"],
-      ["bookmark-slot-4", "Slot 4 — Empty", "Cmd+4"],
-      ["bookmark-slot-5", "Slot 5 — Empty", "Cmd+5"],
-      ["help", "mdv Help", "Cmd+?"],
+      ["bookmark-current-spot", "Bookmark Current Spot", "CmdOrCtrl+D"],
+      ["set-placeholder", "Set Placeholder", "CmdOrCtrl+Shift+0"],
+      ["jump-to-placeholder", "Jump to Placeholder", "CmdOrCtrl+0"],
+      ["bookmark-slot-1", "Slot 1 — Empty", "CmdOrCtrl+1"],
+      ["bookmark-slot-2", "Slot 2 — Empty", "CmdOrCtrl+2"],
+      ["bookmark-slot-3", "Slot 3 — Empty", "CmdOrCtrl+3"],
+      ["bookmark-slot-4", "Slot 4 — Empty", "CmdOrCtrl+4"],
+      ["bookmark-slot-5", "Slot 5 — Empty", "CmdOrCtrl+5"],
+      ["help", "mdv Help", "CmdOrCtrl+?"],
     ] as const;
 
     for (const [id, label, shortcut] of expectedItems) {

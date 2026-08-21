@@ -42,6 +42,10 @@ import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
 const loadedRemoteImages = new Set<string>();
 
+function hasPrimaryModifier(event: Pick<KeyboardEvent, "ctrlKey" | "metaKey">): boolean {
+  return event.ctrlKey !== event.metaKey;
+}
+
 type IconName =
   | "bookmark"
   | "bookmarkFill"
@@ -169,7 +173,7 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      if (!hasPrimaryModifier(event) || event.altKey || event.shiftKey) return;
       if (event.key === "=" || event.key === "+") {
         event.preventDefault();
         zoomIn();
@@ -304,7 +308,7 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return;
+      if (!hasPrimaryModifier(event) || event.shiftKey || event.altKey) return;
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         void navigateBack();
@@ -345,9 +349,6 @@ export function App() {
     void api
       .subscribeToMenuCommands(async (command) => {
         switch (command) {
-          case "install-cli":
-            window.alert(await api.installCli());
-            break;
           case "open":
             await chooseAndOpenDocument();
             break;
@@ -364,7 +365,7 @@ export function App() {
             forgetEditor();
             break;
           case "find":
-            window.dispatchEvent(new KeyboardEvent("keydown", { key: "f", metaKey: true }));
+            window.dispatchEvent(new CustomEvent("mdv:open-find"));
             break;
           case "search-history":
             window.dispatchEvent(new CustomEvent("mdv:focus-history-search", { bubbles: false }));
@@ -1124,10 +1125,9 @@ function Viewer() {
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (
-        !event.metaKey ||
+        !hasPrimaryModifier(event) ||
         event.shiftKey ||
         event.altKey ||
-        event.ctrlKey ||
         event.key.toLowerCase() !== "f"
       ) {
         return;
