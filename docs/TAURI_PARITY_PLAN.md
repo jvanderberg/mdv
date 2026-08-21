@@ -43,6 +43,10 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- The left History pane now keeps its title/search header fixed while only the
+  history row list scrolls. The panel itself owns the sidebar height and hides
+  overflow; `history-list` owns row scrolling. Covered by the Playwright
+  workflow `history header stays fixed while only history rows scroll`.
 - Charcoal now sets a readable chrome text token instead of inheriting the light
   theme's near-black `--chrome-text`, and the theme suite now checks computed
   document, sidebar, TOC, and muted-text contrast under Charcoal. Bookmark drag

@@ -760,14 +760,14 @@ function Sidebar({ visible }: { visible: boolean }) {
     <aside
       aria-label="History"
       aria-hidden={!visible}
-      className={`mdv-history-panel max-h-[260px] overflow-auto border-[var(--border)] border-b bg-[var(--panel)] lg:max-h-none lg:border-r lg:border-b-0 ${
+      className={`mdv-history-panel max-h-[260px] border-[var(--border)] border-b bg-[var(--panel)] lg:max-h-none lg:border-r lg:border-b-0 ${
         visible ? "" : "pointer-events-none"
       }`}
       data-testid="history-panel"
       onFocusCapture={() => markFocusedPane("sidebar")}
       onPointerDown={() => markFocusedPane("sidebar")}
     >
-      <div className="grid gap-2 px-3 pt-8 pb-2 text-[var(--muted)] text-xs uppercase">
+      <div className="mdv-history-header grid gap-2 px-3 pt-8 pb-2 text-[var(--muted)] text-xs uppercase">
         <div className="flex items-center justify-between gap-2">
           <label htmlFor="history-search">History</label>
           <button
@@ -812,7 +812,7 @@ function Sidebar({ visible }: { visible: boolean }) {
         </div>
       </div>
 
-      <div className="grid gap-0.5 p-2 pt-1" data-testid="history-list">
+      <div className="mdv-history-list grid gap-0.5 p-2 pt-1" data-testid="history-list">
         {globalHits.length > 0 ? (
           <SearchHits hits={globalHits} query={searchQuery} />
         ) : (

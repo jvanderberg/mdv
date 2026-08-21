@@ -729,6 +729,50 @@ test("sidebar and bookmark rows preserve Swift visual density", async ({ page })
   await expect(bookmarkRow).not.toContainText(abs("test-docs/syntax.md"));
 });
 
+test("history header stays fixed while only history rows scroll", async ({ page }) => {
+  await page.goto("/");
+  const path = abs("test-docs/README.md");
+  await page.evaluate(
+    ([documentPath]) => {
+      const history = window.__MDV_HISTORY__;
+      if (!history) return;
+      history.splice(
+        0,
+        history.length,
+        ...Array.from({ length: 36 }, (_, index) => ({
+          path: `${documentPath}?history=${index}`,
+          filename: `Saved History ${index + 1}.md`,
+          added_at: Date.now() - index,
+        })),
+      );
+    },
+    [path],
+  );
+  await page.evaluate(
+    async ([documentPath]) => window.__MDV_OPEN_DOCUMENT__?.(documentPath),
+    [path],
+  );
+
+  const panel = page.getByTestId("history-panel");
+  const list = page.getByTestId("history-list");
+  const searchButton = page.getByRole("button", { name: "Search history" });
+  const headerTop = await searchButton.evaluate((element) => element.getBoundingClientRect().top);
+
+  await expect
+    .poll(async () => list.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
+  expect(await panel.evaluate((element) => element.scrollTop)).toBe(0);
+  await list.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+
+  await expect.poll(async () => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  expect(await panel.evaluate((element) => element.scrollTop)).toBe(0);
+  await expect
+    .poll(async () => searchButton.evaluate((element) => element.getBoundingClientRect().top))
+    .toBe(headerTop);
+});
+
 test("left sidebar resizes and collapses through the Swift divider affordance", async ({
   page,
 }) => {

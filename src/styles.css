@@ -407,11 +407,24 @@ button {
 }
 
 .mdv-history-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   opacity: 1;
   transition:
     opacity 220ms ease-out,
     transform 220ms ease-out;
   will-change: opacity, transform;
+}
+
+.mdv-history-header {
+  min-height: 0;
+}
+
+.mdv-history-list {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .mdv-history-panel[aria-hidden="true"] {
