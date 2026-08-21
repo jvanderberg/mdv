@@ -222,6 +222,38 @@ test("local links navigate inline while external links fall through", async ({ p
   );
 });
 
+test("back and forward restore document snapshots by visible block", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/links.md")],
+  );
+
+  const viewer = page.getByTestId("viewer-scroll");
+  await page
+    .locator("[data-mdv-block-index='3']")
+    .evaluate((element) => element.scrollIntoView({ block: "start" }));
+  await viewer.evaluate((element) => element.dispatchEvent(new Event("scroll")));
+
+  await page.getByRole("link", { name: "Syntax tour" }).dispatchEvent("click");
+  await expect(page.getByText("syntax.md").first()).toBeVisible();
+
+  await page.keyboard.press("Meta+ArrowLeft");
+  await expect(page.getByText("links.md").first()).toBeVisible();
+  await expect
+    .poll(async () =>
+      viewer.evaluate((element) => {
+        const block = element.querySelector("[data-mdv-block-index='3']");
+        if (!block) return Number.POSITIVE_INFINITY;
+        return Math.abs(block.getBoundingClientRect().top - element.getBoundingClientRect().top);
+      }),
+    )
+    .toBeLessThan(32);
+
+  await page.keyboard.press("Meta+ArrowRight");
+  await expect(page.getByText("syntax.md").first()).toBeVisible();
+});
+
 test("renders local and data images while blocking remote and missing images", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

@@ -455,8 +455,9 @@ Tests:
 
 ### Phase 2 — Document Navigation And Links
 
-Status: in progress. Core link interception, fragments, back/forward, and
-scroll persistence are implemented and covered.
+Status: complete for the current harness gate. Core link interception,
+fragments, back/forward, visible-block snapshots, and scroll persistence are
+implemented and covered.
 
 Goal: make documents navigate like a browser.
 
@@ -469,20 +470,23 @@ Goal: make documents navigate like a browser.
 - Done: `Cmd+Left` / `Cmd+Right` keyboard shortcuts for back/forward.
 - Done: persisted scroll positions keyed by file, block estimate, fingerprint,
   and file mtime.
-- Remaining: use true top-visible block tracking for navigation snapshots.
+- Done: navigation snapshots store and restore the true top visible rendered
+  block when moving back/forward across documents.
 
 Tests:
 
 - Done: unit tests for slug generation.
 - Done: Playwright tests for relative links, same-document fragments, external
-  link fallthrough, Back button, `Cmd+Left`, and `Cmd+Right`.
+  link fallthrough, Back button, `Cmd+Left`, `Cmd+Right`, and visible-block
+  snapshot restoration.
 - Done: Playwright coverage for restoring scroll when reopening a document.
 - Add Playwright coverage for cross-document fragments.
 
 ### Phase 2.5 — TOC / Inspector
 
-Status: in progress. Core TOC rendering, click-to-scroll, persisted visibility,
-and filtering are covered.
+Status: complete for the current harness gate. Core TOC rendering,
+click-to-scroll, active heading tracking, compact filtering, persisted
+visibility, and bookmark pane behavior are covered.
 
 Goal: match mdv’s right inspector behavior without manual visual checks.
 
@@ -490,13 +494,14 @@ Goal: match mdv’s right inspector behavior without manual visual checks.
 - Done: TOC generated from rendered headings.
 - Done: TOC row click scrolls to the heading.
 - Done: compact TOC filter control.
-- Remaining: current visible heading tracking.
-- Remaining: bookmarks pane resize/collapse persistence.
+- Done: current visible heading tracking.
+- Done: bookmarks pane resize/collapse persistence.
 
 Tests:
 
 - Done: Playwright tests for TOC creation and filter behavior.
-- Add Playwright tests for active heading state and bookmarks pane persistence.
+- Done: Playwright tests for active heading state and bookmarks pane
+  persistence.
 
 ### Phase 3 — Find And Global Search Parity
 

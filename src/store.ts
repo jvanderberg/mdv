@@ -85,6 +85,7 @@ export interface AppState {
 interface NavigationSnapshot {
   path: string;
   fragment: string | null;
+  blockIndex: number;
   scrollTop?: number;
 }
 
@@ -203,7 +204,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const current = get().document;
     if (!current) return;
     const target = resolveLinkTarget(current.path, href);
-    const currentSnapshot = snapshotFor(current.path, get().currentFragment);
+    const currentSnapshot = snapshotFor(
+      current.path,
+      get().currentFragment,
+      get().activeBlockIndex,
+    );
     if (target.kind === "fragment") {
       set((state) => ({
         backStack: [...state.backStack, currentSnapshot],
@@ -231,14 +236,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const current = get().document;
     const previous = get().backStack.at(-1);
     if (!current || !previous) return;
-    const currentSnapshot = snapshotFor(current.path, get().currentFragment);
+    const currentSnapshot = snapshotFor(
+      current.path,
+      get().currentFragment,
+      get().activeBlockIndex,
+    );
     set((state) => ({
       backStack: state.backStack.slice(0, -1),
       forwardStack: [...state.forwardStack, currentSnapshot],
     }));
     await get().openDocument(previous.path);
     const { fragment } = previous;
-    set({ currentFragment: fragment });
+    set({
+      currentFragment: fragment,
+      pendingBlockIndex: fragment ? null : previous.blockIndex,
+    });
     if (fragment) queueMicrotask(() => scrollToFragment(fragment));
   },
 
@@ -246,14 +258,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const current = get().document;
     const next = get().forwardStack.at(-1);
     if (!current || !next) return;
-    const currentSnapshot = snapshotFor(current.path, get().currentFragment);
+    const currentSnapshot = snapshotFor(
+      current.path,
+      get().currentFragment,
+      get().activeBlockIndex,
+    );
     set((state) => ({
       backStack: [...state.backStack, currentSnapshot],
       forwardStack: state.forwardStack.slice(0, -1),
     }));
     await get().openDocument(next.path);
     const { fragment } = next;
-    set({ currentFragment: fragment });
+    set({
+      currentFragment: fragment,
+      pendingBlockIndex: fragment ? null : next.blockIndex,
+    });
     if (fragment) queueMicrotask(() => scrollToFragment(fragment));
   },
 
@@ -366,9 +385,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setPlaceholder() {
-    const { document, viewerScrollTop } = get();
+    const { activeBlockIndex, document, viewerScrollTop } = get();
     if (!document) return;
-    set({ placeholder: { path: document.path, fragment: null, scrollTop: viewerScrollTop } });
+    set({
+      placeholder: {
+        path: document.path,
+        fragment: null,
+        blockIndex: activeBlockIndex,
+        scrollTop: viewerScrollTop,
+      },
+    });
   },
 
   async jumpToPlaceholder() {
@@ -377,6 +403,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().openDocument(placeholder.path);
     set({
       currentFragment: placeholder.fragment,
+      pendingBlockIndex: placeholder.blockIndex,
       pendingScrollTop: placeholder.scrollTop ?? 0,
     });
   },
@@ -518,8 +545,12 @@ function resolveLinkTarget(currentPath: string, href: string): LinkTarget {
   return { kind: "document", path, fragment };
 }
 
-function snapshotFor(path: string, fragment: string | null): NavigationSnapshot {
-  return { path, fragment };
+function snapshotFor(
+  path: string,
+  fragment: string | null,
+  blockIndex: number,
+): NavigationSnapshot {
+  return { path, fragment, blockIndex };
 }
 
 function scrollToFragment(fragment: string) {
