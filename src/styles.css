@@ -360,6 +360,17 @@ button {
   box-shadow: 0 0 0 3px rgb(255 214 10 / 0.38);
 }
 
+.markdown-body .mdv-inline-find-match {
+  border-radius: 2px;
+  background: rgb(255 214 10 / 0.32);
+  color: inherit;
+  padding: 0 1px;
+}
+
+.markdown-body .mdv-find-current-block .mdv-inline-find-match {
+  background: rgb(255 214 10 / 0.55);
+}
+
 .mdv-snippet-match {
   color: var(--chrome-text);
   font-weight: 600;

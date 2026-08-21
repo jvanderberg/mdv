@@ -128,6 +128,21 @@ export function findBlockMatches(blocks: string[], query: string): number[] {
   return matches;
 }
 
+export function canInlineHighlightMarkdownBlock(block: string): boolean {
+  const trimmed = block.trim();
+  if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) return false;
+  const lines = trimmed.split("\n");
+  if (
+    lines.length >= 2 &&
+    lines[0].includes("|") &&
+    [...lines[1]].every((char) => "-:| ".includes(char))
+  ) {
+    return false;
+  }
+  if (trimmed.includes("![")) return false;
+  return true;
+}
+
 function resolveHighlightLanguage(lang?: string): string | undefined {
   const raw = lang?.trim().toLowerCase().split(/\s+/, 1)[0];
   if (!raw) return undefined;

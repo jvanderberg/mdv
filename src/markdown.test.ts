@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import manifest from "../tests/parity/fixtures.json";
 import {
   bookmarkFingerprint,
+  canInlineHighlightMarkdownBlock,
   findBlockMatches,
   renderMarkdown,
   resolveBookmarkAnchor,
@@ -62,6 +63,15 @@ describe("markdown parity contract", () => {
     const blocks = splitBlocks("# Title\n\nAlpha needle.\n\nBeta.\n\nAnother needle.");
     expect(findBlockMatches(blocks, "needle")).toEqual([1, 3]);
     expect(findBlockMatches(blocks, "")).toEqual([]);
+  });
+
+  it("matches mdv inline find highlight eligibility", () => {
+    expect(canInlineHighlightMarkdownBlock("# Heading with needle")).toBe(true);
+    expect(canInlineHighlightMarkdownBlock("> Quote with needle")).toBe(true);
+    expect(canInlineHighlightMarkdownBlock("- List needle")).toBe(true);
+    expect(canInlineHighlightMarkdownBlock("```ts\nconst needle = true;\n```")).toBe(false);
+    expect(canInlineHighlightMarkdownBlock("| A |\n| - |\n| needle |")).toBe(false);
+    expect(canInlineHighlightMarkdownBlock("![needle](image.png)")).toBe(false);
   });
 
   it("syntax fixture exercises every declared language", () => {

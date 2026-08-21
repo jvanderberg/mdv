@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { canInlineHighlightMarkdownBlock } from "./markdown";
 import { useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
@@ -493,6 +494,7 @@ function Viewer() {
   const html = useAppStore((state) => state.html);
   const pendingBlockIndex = useAppStore((state) => state.pendingBlockIndex);
   const pendingScrollTop = useAppStore((state) => state.pendingScrollTop);
+  const blocks = useAppStore((state) => state.blocks);
   const consumePendingBlockIndex = useAppStore((state) => state.consumePendingBlockIndex);
   const consumePendingScrollTop = useAppStore((state) => state.consumePendingScrollTop);
   const api = useAppStore((state) => state.api);
@@ -627,17 +629,22 @@ function Viewer() {
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
+    clearInlineFindMarks(element);
     for (const block of element.querySelectorAll("[data-mdv-block-index]")) {
       block.classList.remove("mdv-find-match-block", "mdv-find-current-block");
     }
-    if (findMatches.length === 0) return;
+    if (findMatches.length === 0 || findQuery.trim().length === 0) return;
     const currentMatch = findMatches[currentFindMatchIndex];
     for (const blockIndex of findMatches) {
       const block = element.querySelector(`[data-mdv-block-index="${blockIndex}"]`);
       block?.classList.add("mdv-find-match-block");
       if (blockIndex === currentMatch) block?.classList.add("mdv-find-current-block");
+      const rawBlock = blocks[blockIndex];
+      if (block && rawBlock && canInlineHighlightMarkdownBlock(rawBlock)) {
+        highlightInlineFindMatches(block, findQuery);
+      }
     }
-  }, [currentFindMatchIndex, findMatches, html, pendingBlockIndex]);
+  }, [blocks, currentFindMatchIndex, findMatches, findQuery, html, pendingBlockIndex]);
 
   const scheduleScrollSave = (scrollTop: number) => {
     if (Date.now() < ignoreScrollUntilRef.current) return;
@@ -959,6 +966,51 @@ function HighlightedSnippet({ snippet }: { snippet: string }) {
       )}
     </>
   );
+}
+
+function clearInlineFindMarks(root: Element) {
+  for (const mark of root.querySelectorAll("mark.mdv-inline-find-match")) {
+    const parent = mark.parentNode;
+    mark.replaceWith(document.createTextNode(mark.textContent ?? ""));
+    parent?.normalize();
+  }
+}
+
+function highlightInlineFindMatches(root: Element, query: string) {
+  const needle = query.trim();
+  if (!needle) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.textContent?.toLowerCase().includes(needle.toLowerCase())) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const textNodes: Text[] = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode as Text);
+  }
+
+  for (const node of textNodes) {
+    const text = node.textContent ?? "";
+    const lower = text.toLowerCase();
+    const lowerNeedle = needle.toLowerCase();
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    let index = lower.indexOf(lowerNeedle, cursor);
+    while (index >= 0) {
+      if (index > cursor) fragment.append(document.createTextNode(text.slice(cursor, index)));
+      const mark = document.createElement("mark");
+      mark.className = "mdv-inline-find-match";
+      mark.textContent = text.slice(index, index + needle.length);
+      fragment.append(mark);
+      cursor = index + needle.length;
+      index = lower.indexOf(lowerNeedle, cursor);
+    }
+    if (cursor < text.length) fragment.append(document.createTextNode(text.slice(cursor)));
+    node.replaceWith(fragment);
+  }
 }
 
 function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {

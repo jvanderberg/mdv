@@ -319,15 +319,21 @@ test("document find highlights blocks and scrolls current match by rendered bloc
   await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("palette");
   await expect(page.locator(".mdv-find-match-block")).toHaveCount(5);
+  await expect(page.locator(".mdv-inline-find-match")).toHaveCount(6);
   const firstCurrent = await page
     .locator(".mdv-find-current-block")
     .first()
     .getAttribute("data-mdv-block-index");
   expect(firstCurrent).toBe("5");
+  await expect(page.locator(".mdv-find-current-block .mdv-inline-find-match")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Next match" }).click();
   const current = page.locator(".mdv-find-current-block").first();
   await expect(current).toHaveAttribute("data-mdv-block-index", "9");
+  await expect(page.locator(".mdv-find-current-block .mdv-inline-find-match")).toHaveText(
+    "palette",
+    { ignoreCase: true },
+  );
   await expect
     .poll(async () =>
       page.getByTestId("viewer-scroll").evaluate((element) => {
