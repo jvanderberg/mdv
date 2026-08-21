@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import manifest from "../tests/parity/fixtures.json";
+import manifest from "../tests/fixtures/documents.json";
 import {
   displayCodeLanguage,
   hasShellPrompts,
@@ -18,7 +18,7 @@ import {
   splitBlocks,
 } from "./markdown";
 
-describe("markdown parity contract", () => {
+describe("markdown rendering regressions", () => {
   for (const fixture of manifest.documents) {
     it(`renders ${fixture.path}`, () => {
       const markdown = readFixture(fixture.path);

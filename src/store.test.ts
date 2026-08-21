@@ -21,7 +21,7 @@ describe("store persistence helpers", () => {
     expect(readStoredNumber("mdv.zoom", 1)).toBe(1.2);
   });
 
-  it("resolves stored Swift theme aliases and invalid values", async () => {
+  it("resolves stored legacy theme aliases and invalid values", async () => {
     const { readTheme } = await import("./store");
 
     localStorage.setItem("mdv.theme", "paper");
@@ -37,7 +37,7 @@ describe("store persistence helpers", () => {
     expect(readTheme()).toBe("high-contrast");
   });
 
-  it("matches Swift smart typography theme opt-outs", async () => {
+  it("applies smart typography theme opt-outs", async () => {
     const { smartTypographyAllowed } = await import("./store");
 
     expect(smartTypographyAllowed("high-contrast")).toBe(true);

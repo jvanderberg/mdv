@@ -1,9 +1,8 @@
 # mdv Test Docs
 
 Sample documents for exercising mdv's rendering paths and themes.
-Open this directory with `mdv test-docs/` (or `make run` and drag the
-folder onto the window) — mdv loads README first and seeds the
-history sidebar with the rest.
+Open this directory from mdv or drag it onto the window. mdv loads
+README first and seeds the history sidebar with the rest.
 
 ## What's here
 
@@ -18,10 +17,10 @@ history sidebar with the rest.
   full GFM table corner cases
 - [images.md](images.md) — relative paths, absolute paths, missing
   references, and a couple of inline data: URIs. Verifies the
-  `LocalImageProvider`.
+  local image resolver.
 - [links.md](links.md) — every link shape: md-to-md (navigates
   in-app), URL (opens in browser), mailto, fragment, broken refs.
-  Verifies the `OpenURLAction` interception.
+  Verifies link interception.
 - [prose.md](prose.md) — long-form text designed for the reading
   themes (Sevilla, Solarized Light). Try toggling between Sevilla
   and Charcoal to see typography hierarchies.
@@ -32,8 +31,7 @@ history sidebar with the rest.
 ## Quick checklist
 
 1. **Themes** — flip through the palette menu in the toolbar. Sidebar,
-   inspector, drag handles, title bar, and traffic-light buttons should
-   all swap with the document body.
+   inspector, drag handles, and toolbar should all swap with the document body.
 2. **Find** — ⌘F. Matches inside paragraphs/headings/lists should be
    highlighted character-by-character (yellow). The current match's
    block is brighter.

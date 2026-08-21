@@ -1,7 +1,7 @@
 [package]
 name = "mdv-tauri"
 version = "0.1.0"
-description = "A native Markdown viewer"
+description = "A desktop Markdown viewer"
 authors = ["Josh V"]
 edition = "2021"
 
@@ -26,11 +26,6 @@ tauri = { version = "2.8", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2.4"
 tauri-plugin-opener = "2.5"
 thiserror = "1"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.4"
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSBitmapImageRep", "NSImageRep", "NSView", "NSWindow"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSData", "NSDictionary", "NSGeometry", "NSObject", "NSString"] }
 
 [dev-dependencies]
 tempfile = "3"

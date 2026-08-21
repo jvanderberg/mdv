@@ -24,7 +24,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 } },
     },
     {
-      name: "webkit-mac",
+      name: "webkit-desktop",
       use: { ...devices["Desktop Safari"], viewport: { width: 1280, height: 820 } },
     },
     {

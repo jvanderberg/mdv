@@ -11,7 +11,7 @@ use std::{
 };
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
-    AppHandle, Emitter, Manager, State, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+    AppHandle, Emitter, Manager, State, Theme, WebviewUrl, WebviewWindowBuilder,
 };
 use thiserror::Error;
 
@@ -798,11 +798,6 @@ fn app_db_path(app: &AppHandle) -> MdvResult<PathBuf> {
 }
 
 #[tauri::command]
-fn instrumentation_capture_path() -> Option<String> {
-    env::var("MDV_INSTRUMENT_TAURI_CAPTURE").ok()
-}
-
-#[tauri::command]
 fn update_menu_state(app: AppHandle, state: NativeMenuState) -> MdvResult<()> {
     let Some(menu) = app.menu() else {
         return Ok(());
@@ -888,61 +883,6 @@ fn set_check_menu_item_state(
         item.set_text(text)?;
         item.set_enabled(enabled)?;
         item.set_checked(checked)?;
-    }
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-#[tauri::command]
-fn capture_tauri_window(window: WebviewWindow, output_path: String) -> MdvResult<()> {
-    capture_tauri_window_macos(window, output_path)
-}
-
-#[cfg(not(target_os = "macos"))]
-#[tauri::command]
-fn capture_tauri_window(_window: WebviewWindow, _output_path: String) -> MdvResult<()> {
-    Err(MdvError::App(
-        "Tauri window capture instrumentation is only implemented on macOS".into(),
-    ))
-}
-
-#[cfg(target_os = "macos")]
-fn capture_tauri_window_macos(window: WebviewWindow, output_path: String) -> MdvResult<()> {
-    use objc2::runtime::AnyObject;
-    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRepPropertyKey, NSWindow};
-    use objc2_foundation::{NSDictionary, NSString};
-
-    let ns_window = window.ns_window().map_err(|err| MdvError::App(err.to_string()))?;
-    if ns_window.is_null() {
-        return Err(MdvError::App("Tauri window has no NSWindow pointer".into()));
-    }
-
-    let png = unsafe {
-        let ns_window = &*(ns_window.cast::<NSWindow>());
-        let content = ns_window
-            .contentView()
-            .ok_or_else(|| MdvError::App("NSWindow has no contentView".into()))?;
-        let target = content.superview().unwrap_or(content);
-        target.layoutSubtreeIfNeeded();
-        target.displayIfNeeded();
-
-        let bounds = target.bounds();
-        let bitmap = target
-            .bitmapImageRepForCachingDisplayInRect(bounds)
-            .ok_or_else(|| MdvError::App("AppKit could not allocate a capture bitmap".into()))?;
-        target.cacheDisplayInRect_toBitmapImageRep(bounds, &bitmap);
-
-        let properties = NSDictionary::<NSBitmapImageRepPropertyKey, AnyObject>::dictionary();
-        bitmap
-            .representationUsingType_properties(NSBitmapImageFileType::PNG, &properties)
-            .ok_or_else(|| MdvError::App("AppKit could not encode the capture as PNG".into()))?
-    };
-
-    let output = NSString::from_str(&output_path);
-    if !png.writeToFile_atomically(&output, true) {
-        return Err(MdvError::App(format!(
-            "AppKit could not write Tauri capture to {output_path}"
-        )));
     }
     Ok(())
 }
@@ -1128,16 +1068,25 @@ fn emit_shared_state_changed(app: &AppHandle, kind: &str) {
 }
 
 fn cli_source_path(app: &AppHandle) -> Option<PathBuf> {
-    resource_candidate(app, "mdv").or_else(|| env::current_dir().ok().map(|dir| dir.join("bin").join("mdv")).filter(|path| path.is_file()))
+    resource_candidate(app, "mdv")
+        .or_else(|| resource_candidate(app, "_up_/bin/mdv"))
+        .or_else(|| {
+            env::current_dir()
+                .ok()
+                .map(|dir| dir.join("bin").join("mdv"))
+                .filter(|path| path.is_file())
+        })
 }
 
 fn help_document_path(app: &AppHandle) -> Option<PathBuf> {
-    resource_candidate(app, "Help.md").or_else(|| {
-        env::current_dir()
-            .ok()
-            .map(|dir| dir.join("mdv").join("Help.md"))
-            .filter(|path| path.is_file())
-    })
+    resource_candidate(app, "Help.md")
+        .or_else(|| resource_candidate(app, "_up_/assets/Help.md"))
+        .or_else(|| {
+            env::current_dir()
+                .ok()
+                .map(|dir| dir.join("assets").join("Help.md"))
+                .filter(|path| path.is_file())
+        })
 }
 
 fn resource_candidate(app: &AppHandle, name: &str) -> Option<PathBuf> {
@@ -1461,8 +1410,6 @@ pub fn run() {
             take_pending_open_paths,
             open_in_editor,
             install_cli,
-            instrumentation_capture_path,
-            capture_tauri_window,
             update_menu_state
         ])
         .build(tauri::generate_context!())
@@ -1527,7 +1474,7 @@ mod tests {
     }
 
     #[test]
-    fn fts_query_matches_swift_prefix_sanitizing() {
+    fn fts_query_sanitizes_prefix_queries() {
         assert_eq!(make_fts_query(" auth token "), r#""auth"* "token"*"#);
         assert_eq!(
             make_fts_query(r#"need"le (alpha): ^beta*"#),

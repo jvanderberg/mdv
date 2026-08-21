@@ -13,7 +13,7 @@ interface FixtureManifest {
 }
 
 const manifest = JSON.parse(
-  readFileSync(resolve(process.cwd(), "tests/parity/fixtures.json"), "utf8"),
+  readFileSync(resolve(process.cwd(), "tests/fixtures/documents.json"), "utf8"),
 ) as FixtureManifest;
 
 const docs = Object.fromEntries(
@@ -275,7 +275,7 @@ test("search pods and bookmarks collapse with animated mdv panels", async ({ pag
   );
 });
 
-test("inspector typography and spacing match the Swift pane", async ({ page }) => {
+test("inspector typography and spacing remain compact", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -786,7 +786,7 @@ test("find shortcuts route by focused pane and close with Escape", async ({ page
   await expect(page.getByTestId("history-search-pod")).toHaveAttribute("data-open", "false");
 });
 
-test("sidebar and bookmark rows preserve Swift visual density", async ({ page }) => {
+test("sidebar and bookmark rows preserve visual density", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([first, second]) => {
@@ -861,9 +861,7 @@ test("history header stays fixed while only history rows scroll", async ({ page 
     .toBe(headerTop);
 });
 
-test("left sidebar resizes and collapses through the Swift divider affordance", async ({
-  page,
-}) => {
+test("left sidebar resizes and collapses through its divider affordance", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -1327,7 +1325,7 @@ test("missing bookmark rows are dimmed, inert, and removable", async ({ page }) 
   await expect(missingRow).toContainText("Missing Bookmark");
   await expect(missingRow).toHaveCSS("opacity", "0.6");
   await missingRow.click({ button: "right" });
-  await expect(page.getByRole("menuitem", { name: "Reveal in Finder" })).toBeDisabled();
+  await expect(page.getByRole("menuitem", { name: "Show in Folder" })).toBeDisabled();
   await page.keyboard.press("Escape");
   await missingRow.getByRole("button").first().click();
   await expect(page.getByText("README.md").first()).toBeVisible();
@@ -1337,7 +1335,7 @@ test("missing bookmark rows are dimmed, inert, and removable", async ({ page }) 
   await expect(missingRow).toHaveCount(0);
 });
 
-test("history, search hits, and bookmarks can reveal their file in Finder", async ({ page }) => {
+test("history, search hits, and bookmarks can show their file in its folder", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([first, second]) => {
@@ -1353,7 +1351,7 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
     .click({
       button: "right",
     });
-  await page.getByRole("menuitem", { name: "Reveal README.md in Finder" }).click();
+  await page.getByRole("menuitem", { name: "Show README.md in Folder" }).click();
   await page.getByRole("button", { name: "Search history" }).click();
   await page.getByPlaceholder("Search history").fill("checklist");
   await page
@@ -1362,7 +1360,7 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
     .click({
       button: "right",
     });
-  await page.getByRole("menuitem", { name: "Reveal README.md in Finder" }).click();
+  await page.getByRole("menuitem", { name: "Show README.md in Folder" }).click();
   await page.getByTestId("viewer-scroll").click();
   await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
@@ -1373,7 +1371,7 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
     .locator(".mdv-document-row[data-row-variant='bookmark']")
     .filter({ hasText: "Markdown Syntax Tour" })
     .click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Reveal in Finder" }).click();
+  await page.getByRole("menuitem", { name: "Show in Folder" }).click();
 
   const calls = await page.evaluate(() => window.__MDV_REVEAL_CALLS__ ?? []);
   expect(calls).toEqual([
@@ -1408,7 +1406,7 @@ test("themes and zoom alter durable viewer state without layout collapse", async
   await expect(page.getByTestId("zoom-hud")).toHaveText("100%");
 });
 
-test("theme menu exposes the full Swift mdv catalog", async ({ page }) => {
+test("theme menu exposes the full mdv catalog", async ({ page }) => {
   const expectedThemes = [
     ["system", "System"],
     ["high-contrast", "High Contrast"],
@@ -1460,7 +1458,7 @@ test("theme palette opens below the toolbar and accepts selection", async ({ pag
   await expect(page.getByTestId("theme-menu")).toHaveCount(0);
 });
 
-test("every Swift mdv theme renders visible document content", async ({ page }) => {
+test("every mdv theme renders visible document content", async ({ page }) => {
   const expectedThemes = [
     ["system", "System"],
     ["high-contrast", "High Contrast"],
@@ -1559,7 +1557,7 @@ test("charcoal theme keeps document and chrome text readable", async ({ page }) 
   expect(contrast.muted).toBeGreaterThanOrEqual(3);
 });
 
-test("theme typography follows Swift smart punctuation and weight rules", async ({ page }) => {
+test("theme typography follows smart punctuation and weight rules", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -1655,7 +1653,7 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
     .toBe(1);
 });
 
-test("native menu state mirrors Swift dynamic labels checks and enables", async ({ page }) => {
+test("native menu state exposes dynamic labels checks and enables", async ({ page }) => {
   await page.goto("/");
   await expect
     .poll(async () => page.evaluate(() => window.__MDV_NATIVE_MENU_STATES__?.at(-1)))
@@ -2009,7 +2007,7 @@ test("visual shell stays readable without clipped chrome", async ({ page }, test
   expect(metrics.clippedSidebarControls).toBe(false);
 });
 
-test("toolbar uses the exact Swift mdv action symbols", async ({ page }) => {
+test("toolbar uses the expected mdv action symbols", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),

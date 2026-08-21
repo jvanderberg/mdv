@@ -12,15 +12,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:parity": "./scripts/parity.sh",
-    "instrument:native": "./scripts/instrument-native-mdv.sh",
-    "capture:native": "./scripts/instrument-native-mdv.sh",
-    "capture:tauri": "./scripts/instrument-tauri-mdv.sh",
-    "compare:visual": "npm run capture:native && npm run capture:tauri && node scripts/compare-captures.mjs",
+    "test:all": "npm run lint && npm run build && npm test && cargo test --manifest-path src-tauri/Cargo.toml && npm run test:e2e",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build --bundles app",
-    "tauri:dmg": "tauri build --bundles dmg"
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

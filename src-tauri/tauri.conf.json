@@ -30,8 +30,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["../bin/mdv", "../mdv/Help.md"],
-    "icon": ["../MDV.png", "../mdv/AppIcon.icns"],
+    "resources": ["../bin/mdv", "../assets/Help.md"],
+    "icon": ["../MDV.png"],
     "fileAssociations": [
       {
         "ext": ["md", "markdown", "mdown", "mkd", "txt"],

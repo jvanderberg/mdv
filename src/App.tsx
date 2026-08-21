@@ -75,7 +75,6 @@ export function App() {
   const zoom = useAppStore((state) => state.zoom);
   const api = useAppStore((state) => state.api);
   const currentDocument = useAppStore((state) => state.document);
-  const html = useAppStore((state) => state.html);
   const backStack = useAppStore((state) => state.backStack);
   const bookmarks = useAppStore((state) => state.bookmarks);
   const editorAppPath = useAppStore((state) => state.editorAppPath);
@@ -283,22 +282,6 @@ export function App() {
     currentDocument?.path,
     reloadCurrentDocumentFromDisk,
   ]);
-
-  useEffect(() => {
-    if (!currentDocument || !html) return;
-    let cancelled = false;
-    const capture = async () => {
-      const outputPath = await api.instrumentationCapturePath?.();
-      if (!outputPath || cancelled) return;
-      window.setTimeout(() => {
-        if (!cancelled) void api.captureTauriWindow?.(outputPath);
-      }, 900);
-    };
-    void capture();
-    return () => {
-      cancelled = true;
-    };
-  }, [api, currentDocument, html]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -1312,7 +1295,7 @@ function Viewer() {
         ) : (
           <div className="py-[12vh] text-center text-[var(--muted)]">
             <h1 className="font-semibold text-4xl text-[var(--text)]">mdv</h1>
-            <p>A native Markdown viewer for macOS.</p>
+            <p>A desktop Markdown viewer.</p>
           </div>
         )}
       </article>
@@ -1876,7 +1859,7 @@ function HistoryRows({ history }: { history: HistoryEntry[] }) {
       subtitle={entry.path}
       subtitleMode="head"
       variant="history"
-      revealLabel={`Reveal ${entry.filename} in Finder`}
+      revealLabel={`Show ${entry.filename} in Folder`}
       removeLabel="Remove from History"
       onReveal={() => void revealPath(entry.path)}
       onRemove={() => void removeHistoryEntry(entry.path)}
@@ -1901,7 +1884,7 @@ function SearchHits({ hits, query }: { hits: SearchHit[]; query: string }) {
       title={hit.filename}
       subtitle={<HighlightedSnippet snippet={hit.snippet} />}
       variant="search"
-      revealLabel={`Reveal ${hit.filename} in Finder`}
+      revealLabel={`Show ${hit.filename} in Folder`}
       onReveal={() => void revealPath(hit.path)}
       onClick={() => void openHit(hit)}
     />
@@ -2202,7 +2185,7 @@ function BookmarkContextMenu({
         Go to Bookmark
       </MenuButton>
       <MenuButton disabled={!bookmark?.file_exists} onClick={() => bookmark && onReveal(bookmark)}>
-        Reveal in Finder
+        Show in Folder
       </MenuButton>
       <MenuDivider />
       <MenuButton disabled={atTop} onClick={() => onMove(menu.bookmarkId, "up")}>
@@ -2269,7 +2252,7 @@ function SortableBookmarkRow({
       subtitle={filenameForPath(bookmark.path)}
       title={bookmark.title}
       variant="bookmark"
-      revealLabel={`Reveal bookmark ${bookmark.title} in Finder`}
+      revealLabel={`Show bookmark ${bookmark.title} in Folder`}
       removeLabel={`Remove bookmark ${bookmark.title}`}
       onContextMenu={onContextMenu}
       onReveal={onReveal}
@@ -2505,7 +2488,7 @@ function DocumentRowContextMenu({
       {onClick ? <MenuButton onClick={() => run(onClick)}>Open</MenuButton> : null}
       {onReveal ? (
         <MenuButton ariaLabel={revealLabel} onClick={() => run(onReveal)}>
-          Reveal in Finder
+          Show in Folder
         </MenuButton>
       ) : null}
       {onRemove ? (

@@ -21,7 +21,7 @@ interface TauriCapability {
   windows: string[];
 }
 
-describe("tauri bundle parity contract", () => {
+describe("tauri bundle configuration", () => {
   const config = JSON.parse(
     readFileSync(resolve(process.cwd(), "src-tauri/tauri.conf.json"), "utf8"),
   ) as TauriConfig;
@@ -29,11 +29,11 @@ describe("tauri bundle parity contract", () => {
   it("keeps mdv app identity and bundle assets", () => {
     expect(config.productName).toBe("mdv");
     expect(config.identifier).toBe("com.jvanderberg.mdv");
-    expect(config.bundle.icon).toEqual(["../MDV.png", "../mdv/AppIcon.icns"]);
-    expect(config.bundle.resources).toEqual(["../bin/mdv", "../mdv/Help.md"]);
+    expect(config.bundle.icon).toEqual(["../MDV.png"]);
+    expect(config.bundle.resources).toEqual(["../bin/mdv", "../assets/Help.md"]);
   });
 
-  it("registers Swift mdv document associations", () => {
+  it("registers mdv document associations", () => {
     expect(config.bundle.fileAssociations).toEqual([
       {
         ext: ["md", "markdown", "mdown", "mkd", "txt"],
@@ -52,30 +52,7 @@ describe("tauri bundle parity contract", () => {
     expect(capability.windows).toEqual(["*"]);
   });
 
-  it("keeps a signed and notarized DMG release workflow", () => {
-    const workflow = readFileSync(
-      resolve(process.cwd(), ".github/workflows/tauri-release.yml"),
-      "utf8",
-    );
-    const packageJson = JSON.parse(
-      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
-    ) as { scripts: Record<string, string> };
-
-    expect(packageJson.scripts["tauri:dmg"]).toBe("tauri build --bundles dmg");
-    expect(workflow).toContain("tauri-apps/tauri-action@v1");
-    expect(workflow).toContain("aarch64-apple-darwin");
-    expect(workflow).toContain("x86_64-apple-darwin");
-    expect(workflow).toContain("--bundles dmg");
-    expect(workflow).toContain("APPLE_CERTIFICATE");
-    expect(workflow).toContain("APPLE_CERTIFICATE_PASSWORD");
-    expect(workflow).toContain("APPLE_API_KEY_PATH");
-    expect(workflow).toContain("APPLE_API_ISSUER");
-    expect(workflow).toContain("KEYCHAIN_PASSWORD");
-    expect(workflow).toContain("releaseDraft: true");
-    expect(workflow).toContain("uploadWorkflowArtifacts: true");
-  });
-
-  it("keeps the Swift mdv custom menu command surface wired in Tauri", () => {
+  it("keeps the mdv menu command surface wired in Tauri", () => {
     const rustSource = readFileSync(resolve(process.cwd(), "src-tauri/src/lib.rs"), "utf8");
     const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 

@@ -27,7 +27,7 @@ Every program eventually evolves bookmarks. We did not fight it.
 - **⌘D** — bookmark the spot you are looking at.
 - **⌘1**..**⌘5** — jump to bookmark slots 1 through 5.
 - **⌘⇧0** — drop a transient placeholder at the current spot. **⌘0** — jump back to it. The placeholder lives in memory only; restart the app and it is gone. That is a feature.
-- This help file lives at `~/Library/Application Support/mdv/Help.md`, which means you can bookmark sections of it like anything else. Welcome to the meta-help.
+- This help file is copied into mdv's application data directory, which means you can bookmark sections of it like anything else. Welcome to the meta-help.
 
 ## Sidebars
 

@@ -1,68 +1,55 @@
+# mdv
 
-<img src="MDV.png" alt="mdv" width="320">
+mdv is a desktop Markdown viewer built with Tauri, Rust, React, and TypeScript.
 
-## Mdv: a macOS native Markdown viewer.
+It renders local Markdown documents with a persistent history, full-text history search, bookmarks, a table of contents, live reload, themes, syntax-highlighted code blocks, local images, and in-app navigation between Markdown files.
 
-I built this in about 30 minutes of aggregate effort over the course
-of an evening while yelling at people about zoning reform. 
+## Development
 
-## Features
+Install the current Node.js LTS release, Rust stable, and the platform prerequisites from the [Tauri setup guide](https://v2.tauri.app/start/prerequisites/).
 
-* It renders Markdown. This is a totally solved problem in computer science and I used [gonzalezreal/swift-markdown-ui](https://github.com/gonzalezreal/swift-markdown-ui) to do it here.
+```sh
+npm ci
+npm run tauri:dev
+```
 
-* It keeps a durable history of the Markdown files you've viewed.
+The frontend can also run in a browser with mocked native APIs for development and tests:
 
-* You can associate it with the `.md` file type so it comes up with you click a Markdown file. So far so good here with the features, right?
+```sh
+npm run dev
+```
 
-* It supports TEXT SEARCH TECHNOLOGY. This is a feature that other Markdown viewers on the App Store don't support. I may patent it.
+## Checks
 
-* It renders a TOC navigator as a sidebar.
+```sh
+npm run lint
+npm run build
+npm test
+cargo test --manifest-path src-tauri/Cargo.toml
+npm run test:e2e
+```
 
-* It has color/display themes because I am a frustrated and untalented graphic designer and couldn't resist spending 30 minutes having Claude and GPT 5.5 argue back and forth with me about typography.
+Run the complete validation suite with:
 
-* Bookmarks, across all files, the first 5 of which are hotkeyed `CMD-[1-5]`, and a transient in-memory `CMD-0` placeholder. Every program must evolve until it manages bookmarks.
+```sh
+npm run test:all
+```
 
-* It may do other things I've forgotten about. 
+The Playwright suite uses the documents in `test-docs/` as a rendering and workflow regression corpus. Install its browsers once with `npx playwright install`.
 
-## Installing
+## Build
 
-Type `make`.
+```sh
+npm run tauri:build
+```
 
-(Or download a release from Github.)
+Tauri writes platform-specific bundles under `src-tauri/target/release/bundle/`.
 
-## Here Are My Prompts, Roughly
+## Project Layout
 
-> Install this macOS UI skill I found.
-
-> Build me a Markdown viewer, in Swift, as a native macOS app. It should include a sidebar history of all the Markdown files I've viewed. Get it running with xcodebuild and use the computer-use MCP to make sure it's actually working.
-
-> Use https://github.com/gonzalezreal/swift-markdown-ui to render Markdown.
-
-> Write a PLAN.md and PROGRESS.md for all of this. [ed: I'm not showing them to you, they're embarassing]. 
-
-> Does the markdown render look right to you? [reader: it did not] Evaluate it carefully, scroll it up and down too. 
-
-> Rebuild, iterate until it's actually using the markdownui stuff.
-
-> /macos-design clean up the UI; use computer-use MCP to verify your changes. Make it real nice.
-
-> Does history survive restart? It should. I should be able to slide left to reveal a delete button for history items.
-  
-> Ok I need text search, standard macOS pattern, I only need normal text search nothing fussy.
-
-> My big complaint is that it doesn't highlight the token or the line it found the match on, so it's hard to see where it is.
-
-> Render a clickable table of content nav based on h1/h2/h3 headers in the markdown, as an additional, collapsible sidebar. use the macos-design skill to make it look good, and test with computer-use.
-
-> Can I associate markdown files with this app so when i click them they come up in the viewer?
-
-Then some boring packaging stuff, and also Claude figured out how to make the icon work. 
-
-*Note: this log is less authentic now since Josh & I fell into a hole of trying to (and succeeding at) building the best conceivable
-Markdown viewer. But those prompts alone did get us to a Markdown viewer that was better than anything on the app store.*
-
-## What It Looks Like
-
-![Mdv Screenshot](MDV-SCREEN.png)
-
-I make it look real nice like.
+- `src/` - React UI, state, and Markdown rendering
+- `src-tauri/` - Rust backend and Tauri configuration
+- `assets/` - bundled fonts and help content
+- `test-docs/` - Markdown rendering regression corpus
+- `tests/e2e/` - browser-level workflow and rendering tests
+- `tests/fixtures/` - regression corpus expectations
