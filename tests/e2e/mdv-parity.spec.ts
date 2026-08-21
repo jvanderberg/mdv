@@ -715,6 +715,12 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
 });
 
 test("view menu toggles remote images and smart typography", async ({ page }) => {
+  await page.route("https://github.githubassets.com/**", async (route) => {
+    await route.fulfill({
+      body: readFileSync(abs("test-docs/images/icon.png")),
+      contentType: "image/png",
+    });
+  });
   await page.goto("/");
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -725,6 +731,7 @@ test("view menu toggles remote images and smart typography", async ({ page }) =>
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("load-remote-images"));
   await expect(page.getByText("Remote image blocked")).toHaveCount(0);
   await expect(page.locator("img[src^='https://']")).toHaveCount(1);
+  await expect(page.locator("img[src^='https://']")).toHaveAttribute("data-image-state", "loaded");
 
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -734,6 +741,23 @@ test("view menu toggles remote images and smart typography", async ({ page }) =>
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("smart-typography"));
   const plainHtml = await page.getByTestId("markdown-body").innerHTML();
   expect(plainHtml).not.toEqual(smartHtml);
+});
+
+test("enabled remote image failures render an explicit placeholder", async ({ page }) => {
+  await page.route("https://github.githubassets.com/**", async (route) => {
+    await route.abort();
+  });
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/images.md")],
+  );
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("load-remote-images"));
+  await expect(page.getByText("Couldn't load remote image")).toBeVisible();
+  await expect(page.locator("[data-image-state='remote-error']")).toContainText(
+    "github.githubassets.com",
+  );
 });
 
 test("restores the saved scroll position when reopening a document", async ({ page }) => {

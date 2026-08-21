@@ -571,8 +571,9 @@ Tests:
 
 ### Phase 5 — Images And Privacy
 
-Status: in progress. Local, data URI, missing-file, and blocked-remote image
-states are implemented and covered. Opt-in remote loading remains.
+Status: complete for current harness. Local, data URI, missing-file,
+blocked-remote, enabled-remote loaded/error states, persistent opt-in, and
+in-memory successful remote URL caching are implemented and covered.
 
 Goal: match mdv image behavior and remote-image privacy.
 
@@ -581,8 +582,8 @@ Goal: match mdv image behavior and remote-image privacy.
 - Done: render missing image placeholders.
 - Done: render data URI images.
 - Done: block remote images by default.
-- Add persistent Load Remote Images toggle.
-- Add remote loading state, error state, and in-memory cache.
+- Done: add persistent Load Remote Images toggle.
+- Done: add remote loading state, error state, and in-memory cache.
 
 Tests:
 
@@ -590,7 +591,7 @@ Tests:
 - Done: Rust tests for local image URL resolution and missing-file detection.
 - Done: Playwright tests for relative images, data URI images, missing images,
   and remote-blocked placeholders.
-- Add tests for enabled remote image state and failed remote load.
+- Done: tests for enabled remote image state and failed remote load.
 
 ### Phase 6 — Code Block Parity
 

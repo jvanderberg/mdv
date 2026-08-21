@@ -13,6 +13,8 @@ import { canInlineHighlightMarkdownBlock } from "./markdown";
 import { useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
+const loadedRemoteImages = new Set<string>();
+
 type IconName =
   | "bookmark"
   | "bookmarkFill"
@@ -494,6 +496,7 @@ function Viewer() {
   const currentFindMatchIndex = useAppStore((state) => state.currentFindMatchIndex);
   const currentFragment = useAppStore((state) => state.currentFragment);
   const html = useAppStore((state) => state.html);
+  const loadRemoteImages = useAppStore((state) => state.loadRemoteImages);
   const pendingBlockIndex = useAppStore((state) => state.pendingBlockIndex);
   const pendingScrollTop = useAppStore((state) => state.pendingScrollTop);
   const blocks = useAppStore((state) => state.blocks);
@@ -571,6 +574,40 @@ function Viewer() {
       });
     }
   }, [api, document, html]);
+
+  useEffect(() => {
+    if (!loadRemoteImages || !scrollRef.current) return;
+    const images = Array.from(
+      scrollRef.current.querySelectorAll<HTMLImageElement>(
+        "img.mdv-image:not([data-mdv-local-image])",
+      ),
+    ).filter((image) => isRemoteUrl(image.getAttribute("src") ?? ""));
+    for (const image of images) {
+      const src = image.getAttribute("src") ?? "";
+      if (loadedRemoteImages.has(src)) {
+        image.dataset.imageState = "loaded";
+        continue;
+      }
+      image.dataset.imageState = "loading";
+      const onLoad = () => {
+        loadedRemoteImages.add(src);
+        image.dataset.imageState = "loaded";
+      };
+      const onError = () => {
+        const placeholder = documentPlaceholder("Couldn't load remote image", "remote-error");
+        const host = window.document.createElement("span");
+        host.textContent = remoteHostLabel(src);
+        placeholder.append(host);
+        image.replaceWith(placeholder);
+      };
+      image.addEventListener("load", onLoad, { once: true });
+      image.addEventListener("error", onError, { once: true });
+      if (image.complete) {
+        if (image.naturalWidth > 0) onLoad();
+        else onError();
+      }
+    }
+  }, [html, loadRemoteImages]);
 
   useEffect(
     () => () => {
@@ -1440,10 +1477,22 @@ function Icon({ name }: { name: IconName }) {
   );
 }
 
-function documentPlaceholder(label: string): HTMLSpanElement {
+function isRemoteUrl(value: string) {
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
+function remoteHostLabel(value: string) {
+  try {
+    return new URL(value).host;
+  } catch {
+    return value;
+  }
+}
+
+function documentPlaceholder(label: string, state = "missing"): HTMLSpanElement {
   const placeholder = document.createElement("span");
   placeholder.className = "mdv-image-placeholder";
-  placeholder.dataset.imageState = "missing";
+  placeholder.dataset.imageState = state;
   placeholder.textContent = label;
   return placeholder;
 }

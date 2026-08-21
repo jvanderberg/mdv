@@ -426,6 +426,14 @@ button {
   color: var(--muted);
 }
 
+.markdown-body .mdv-image[data-image-state="loading"] {
+  opacity: 0.68;
+}
+
+.mdv-image-placeholder[data-image-state="remote-error"] {
+  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+}
+
 .mdv-image-placeholder-remote {
   display: flex;
   flex-direction: column;
