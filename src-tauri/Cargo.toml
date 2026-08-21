@@ -1,16 +1,36 @@
 [package]
-name = "mdv-tauri"
+name = "mdvx"
 version = "0.1.0"
 description = "A desktop Markdown viewer"
-authors = ["Josh V"]
+authors = ["Josh Vanderberg"]
 edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+repository = "https://github.com/jvanderberg/mdv"
+homepage = "https://github.com/jvanderberg/mdv"
+readme = "README.md"
+keywords = ["markdown", "viewer", "desktop", "tauri"]
+categories = ["gui", "text-processing"]
+include = [
+    "src/**",
+    "build.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+    "LICENSE",
+    "README.md",
+    "capabilities/**",
+    "frontend-dist/**",
+    "icons/**",
+    "resources/**",
+    "tauri.conf.json",
+]
 
 [lib]
-name = "mdv_tauri_lib"
+name = "mdvx_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "mdv-tauri"
+name = "mdvx"
 path = "src/main.rs"
 
 [build-dependencies]

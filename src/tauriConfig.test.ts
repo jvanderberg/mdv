@@ -29,8 +29,8 @@ describe("tauri bundle configuration", () => {
   it("keeps mdv app identity and bundle assets", () => {
     expect(config.productName).toBe("mdv");
     expect(config.identifier).toBe("com.jvanderberg.mdv");
-    expect(config.bundle.icon).toEqual(["../MDV.png"]);
-    expect(config.bundle.resources).toEqual(["../assets/Help.md"]);
+    expect(config.bundle.icon).toEqual(["icons/MDV.png"]);
+    expect(config.bundle.resources).toEqual(["resources/Help.md"]);
   });
 
   it("registers mdv document associations", () => {

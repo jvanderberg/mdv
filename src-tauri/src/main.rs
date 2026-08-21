@@ -1,3 +1,3 @@
 fn main() {
-    mdv_tauri_lib::run();
+    mdvx_lib::run();
 }

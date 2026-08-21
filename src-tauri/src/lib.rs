@@ -75,6 +75,7 @@ impl From<tauri::Error> for MdvError {
 
 type MdvResult<T> = Result<T, MdvError>;
 const SUPPORTED_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "txt"];
+const HELP_DOCUMENT: &str = include_str!("../resources/Help.md");
 const STORE_OPEN_FLAGS: OpenFlags = OpenFlags::SQLITE_OPEN_READ_WRITE
     .union(OpenFlags::SQLITE_OPEN_CREATE)
     .union(OpenFlags::SQLITE_OPEN_FULL_MUTEX);
@@ -995,12 +996,14 @@ fn emit_shared_state_changed(app: &AppHandle, kind: &str) {
 
 fn help_document_path(app: &AppHandle) -> Option<PathBuf> {
     resource_candidate(app, "Help.md")
-        .or_else(|| resource_candidate(app, "_up_/assets/Help.md"))
+        .or_else(|| resource_candidate(app, "resources/Help.md"))
         .or_else(|| {
-            env::current_dir()
-                .ok()
-                .map(|dir| dir.join("assets").join("Help.md"))
-                .filter(|path| path.is_file())
+            let path = app.path().app_data_dir().ok()?.join("Help.md");
+            if !path.is_file() {
+                fs::create_dir_all(path.parent()?).ok()?;
+                fs::write(&path, HELP_DOCUMENT).ok()?;
+            }
+            Some(path)
         })
 }
 

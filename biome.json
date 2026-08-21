@@ -9,6 +9,7 @@
       "!build",
       "!.build",
       "!src-tauri/gen",
+      "!src-tauri/frontend-dist",
       "!src-tauri/target",
       "!playwright-report",
       "!test-results"

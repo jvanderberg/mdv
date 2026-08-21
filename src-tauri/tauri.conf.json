@@ -7,7 +7,7 @@
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
     "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "frontendDist": "frontend-dist"
   },
   "app": {
     "windows": [
@@ -30,8 +30,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["../assets/Help.md"],
-    "icon": ["../MDV.png"],
+    "resources": ["resources/Help.md"],
+    "icon": ["icons/MDV.png"],
     "fileAssociations": [
       {
         "ext": ["md", "markdown", "mdown", "mkd", "txt"],

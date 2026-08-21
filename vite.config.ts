@@ -5,6 +5,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
+  build: {
+    outDir: "src-tauri/frontend-dist",
+    emptyOutDir: true,
+  },
   server: {
     strictPort: true,
     port: 1420,
