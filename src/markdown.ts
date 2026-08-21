@@ -1,6 +1,7 @@
 import hljs from "highlight.js";
 import MarkdownIt from "markdown-it";
 import type Token from "markdown-it/lib/token.mjs";
+import { displayCodeLanguage, resolveHighlightLanguage } from "./codeBlocks";
 import type { TocHeading } from "./types";
 
 export interface RenderedDocument {
@@ -25,10 +26,11 @@ export function renderMarkdown(
     typographer,
     highlight(code, lang) {
       const language = resolveHighlightLanguage(lang);
+      const displayLanguage = displayCodeLanguage(lang);
       const highlighted = language
         ? hljs.highlight(code, { language, ignoreIllegals: true }).value
         : escapeHtml(code);
-      return `<pre class="code-block"><code class="hljs language-${escapeAttr(language ?? "plain")}">${highlighted}</code></pre>`;
+      return `<pre class="code-block" data-mdv-code-language="${escapeAttr(displayLanguage)}"><code class="hljs language-${escapeAttr(language ?? "plain")}">${highlighted}</code></pre>`;
     },
   });
 
@@ -38,6 +40,21 @@ export function renderMarkdown(
   const defaultImageRender =
     md.renderer.rules.image ??
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+
+  md.renderer.rules.fence = (tokens, idx) => {
+    const token = tokens[idx];
+    const rawLanguage = displayCodeLanguage(token.info);
+    const language = resolveHighlightLanguage(token.info);
+    const highlighted = language
+      ? hljs.highlight(token.content, { language, ignoreIllegals: true }).value
+      : escapeHtml(token.content);
+    const blockIndex = token.attrGet("data-mdv-block-index") ?? "";
+    const blockAttr = blockIndex ? ` data-mdv-block-index="${escapeAttr(blockIndex)}"` : "";
+    return `<div class="mdv-code-block" data-code-block-id="code-${idx}-${escapeAttr(blockIndex)}" data-code-language="${escapeAttr(rawLanguage)}"${blockAttr}>
+<div class="mdv-code-chrome"><span class="mdv-code-language">${escapeHtml(rawLanguage)}</span><div class="mdv-code-toolbar">${codeButtonMarkup("wrap", "Wrap long lines", "text.append")}${codeButtonMarkup("copy", "Copy code", "doc.on.doc")}</div></div>
+<pre class="code-block" data-mdv-code-language="${escapeAttr(rawLanguage)}"><code class="hljs language-${escapeAttr(language ?? "plain")}">${highlighted}</code></pre>
+</div>`;
+  };
 
   md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
     const text = headingText(tokens, idx);
@@ -143,24 +160,6 @@ export function canInlineHighlightMarkdownBlock(block: string): boolean {
   return true;
 }
 
-function resolveHighlightLanguage(lang?: string): string | undefined {
-  const raw = lang?.trim().toLowerCase().split(/\s+/, 1)[0];
-  if (!raw) return undefined;
-  const aliases: Record<string, string> = {
-    js: "javascript",
-    jsx: "javascript",
-    sh: "bash",
-    zsh: "bash",
-    shell: "bash",
-    py: "python",
-    rb: "ruby",
-    rs: "rust",
-    yml: "yaml",
-  };
-  const normalized = aliases[raw] ?? raw;
-  return hljs.getLanguage(normalized) ? normalized : undefined;
-}
-
 function headingText(tokens: Token[], headingOpenIndex: number): string {
   const inline = tokens[headingOpenIndex + 1];
   if (inline?.type !== "inline") return "";
@@ -229,6 +228,20 @@ function remoteLabel(src: string): string {
 
 function imagePlaceholder(label: string, state: string): string {
   return `<span class="mdv-image-placeholder" data-image-state="${escapeAttr(state)}">${escapeHtml(label)}</span>`;
+}
+
+function codeButtonMarkup(action: "copy" | "wrap", label: string, symbol: string): string {
+  return `<button class="mdv-code-button" type="button" data-code-action="${action}" aria-label="${escapeAttr(label)}" title="${escapeAttr(label)}">${codeIconMarkup(symbol)}</button>`;
+}
+
+function codeIconMarkup(symbol: string): string {
+  const paths: Record<string, string> = {
+    "doc.on.doc":
+      '<path d="M8.25 7.25h8.5v11.5h-8.5V7.25Z" /><path d="M5.25 15.75V4.25h8.5M5.25 4.25h8.5v3" />',
+    "text.append":
+      '<path d="M5 7h14M5 11h10M5 15h14M5 19h8" /><path d="m17 16.25 2.75 2.75L17 21.75" />',
+  };
+  return `<svg aria-hidden="true" class="mdv-symbol" data-sf-symbol="${escapeAttr(symbol)}" viewBox="0 0 24 24">${paths[symbol] ?? ""}</svg>`;
 }
 
 function classList(current: string | null, next: string): string {

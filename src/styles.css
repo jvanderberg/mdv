@@ -454,10 +454,100 @@ button {
   font-size: 10px;
 }
 
-.code-block {
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+.mdv-code-block {
+  margin: 1em 0;
+  overflow: hidden;
+  border-radius: 6px;
   background: var(--code);
-  padding: 14px 16px;
+}
+
+.mdv-code-chrome {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding-top: 4px;
+}
+
+.mdv-code-language {
+  flex: 1;
+  min-width: 0;
+  padding-left: 14px;
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 10.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+.mdv-code-language:empty {
+  opacity: 0;
+}
+
+.mdv-code-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding-right: 6px;
+  opacity: 0;
+  transition: opacity 120ms ease-in-out;
+}
+
+.mdv-code-block:hover .mdv-code-toolbar,
+.mdv-code-block:focus-within .mdv-code-toolbar {
+  opacity: 1;
+}
+
+.mdv-code-button {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.mdv-code-button:hover,
+.mdv-code-button:focus-visible {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+  outline: none;
+}
+
+.mdv-code-button[aria-pressed="true"],
+.mdv-code-button[data-copied="true"] {
+  color: var(--accent);
+}
+
+.code-block {
+  margin: 0;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--code);
+  padding: 4px 16px 14px;
+}
+
+.code-block code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  background: transparent;
+  font-size: calc(16px * var(--zoom) * 0.85);
+  line-height: 1.45;
+}
+
+.mdv-code-wrap .code-block {
+  overflow-x: hidden;
+}
+
+.mdv-code-wrap .code-block code {
+  width: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

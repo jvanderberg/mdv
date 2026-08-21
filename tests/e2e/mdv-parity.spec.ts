@@ -760,6 +760,52 @@ test("enabled remote image failures render an explicit placeholder", async ({ pa
   );
 });
 
+test("code blocks expose mdv chrome, copy, and per-block wrap", async ({ page }) => {
+  await mockClipboard(page);
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/code.md")],
+  );
+
+  const firstBlock = page.locator(".mdv-code-block").first();
+  await expect(firstBlock.locator(".mdv-code-language")).toHaveText("bash");
+  await firstBlock.hover();
+  await expect(firstBlock.getByRole("button", { name: "Wrap long lines" })).toBeVisible();
+  await expect(firstBlock.getByRole("button", { name: "Copy code" })).toBeVisible();
+  await expect(firstBlock.locator('.mdv-symbol[data-sf-symbol="text.append"]')).toBeVisible();
+  await expect(firstBlock.locator('.mdv-symbol[data-sf-symbol="doc.on.doc"]')).toBeVisible();
+
+  await firstBlock.getByRole("button", { name: "Wrap long lines" }).click();
+  await expect(firstBlock).toHaveClass(/mdv-code-wrap/);
+  await expect(firstBlock.locator('.mdv-symbol[data-sf-symbol="text.alignleft"]')).toBeVisible();
+
+  await firstBlock.getByRole("button", { name: "Copy code" }).click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_CLIPBOARD__ ?? ""))
+    .toContain("swift build -c");
+  await expect(firstBlock.locator('.mdv-symbol[data-sf-symbol="checkmark"]')).toBeVisible();
+});
+
+test("shell code context menu can copy without prompts", async ({ page }) => {
+  await mockClipboard(page);
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/code-prompts.md")],
+  );
+
+  const block = page.locator(".mdv-code-block").first();
+  await block.click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Copy Code" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Wrap Long Lines" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Copy Without Prompts" }).click();
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_CLIPBOARD__ ?? ""))
+    .toBe("pnpm install\npnpm test\nsystemctl restart mdv\nplain output\n");
+});
+
 test("restores the saved scroll position when reopening a document", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -1147,6 +1193,20 @@ async function ensureBookmarksExpanded(page: Page) {
   if ((await button.getAttribute("aria-expanded")) !== "true") {
     await button.click();
   }
+}
+
+async function mockClipboard(page: Page) {
+  await page.addInitScript(() => {
+    window.__MDV_CLIPBOARD__ = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          window.__MDV_CLIPBOARD__ = value;
+        },
+      },
+    });
+  });
 }
 
 async function clickToolbarBookmark(page: Page) {

@@ -50,6 +50,7 @@ declare global {
   interface Window {
     __MDV_TEST_API__?: import("./tauri").MdvApi;
     __MDV_CLI_INSTALL_CALLS__?: string[];
+    __MDV_CLIPBOARD__?: string;
     __MDV_BOOKMARKS__?: Bookmark[];
     __MDV_DROP_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_OPEN_PATHS__?: (paths: string[]) => Promise<void>;

@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { hasShellPrompts, stripShellPrompts } from "./codeBlocks";
 import { canInlineHighlightMarkdownBlock } from "./markdown";
 import { useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
@@ -21,6 +22,8 @@ type IconName =
   | "chevronDown"
   | "chevronRight"
   | "chevronUp"
+  | "checkmark"
+  | "docOnDoc"
   | "docText"
   | "listBulletIndent"
   | "magnifyingglass"
@@ -29,6 +32,8 @@ type IconName =
   | "pinFill"
   | "plus"
   | "sidebarRight"
+  | "textAlignleft"
+  | "textAppend"
   | "trash"
   | "xmark";
 
@@ -487,6 +492,7 @@ function shouldRouteFindToHistorySearch() {
 
 function Viewer() {
   const [findVisible, setFindVisible] = useState(false);
+  const [codeMenu, setCodeMenu] = useState<{ blockId: string; x: number; y: number } | null>(null);
   const scrollRef = useRef<HTMLElement | null>(null);
   const ignoreScrollUntilRef = useRef(0);
   const saveTimerRef = useRef<number | undefined>(undefined);
@@ -516,6 +522,25 @@ function Viewer() {
     if (!anchor) return false;
     void navigateToHref(anchor.getAttribute("href") ?? "");
     return true;
+  };
+  const codeBlockForId = (blockId: string): HTMLElement | null =>
+    scrollRef.current?.querySelector<HTMLElement>(
+      `.mdv-code-block[data-code-block-id="${blockId}"]`,
+    ) ?? null;
+  const handleCodeAction = (target: EventTarget | null): boolean => {
+    const action = (target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-code-action]");
+    if (!action) return false;
+    const block = action.closest<HTMLElement>(".mdv-code-block");
+    if (!block) return false;
+    if (action.dataset.codeAction === "wrap") {
+      toggleCodeWrap(block);
+      return true;
+    }
+    if (action.dataset.codeAction === "copy") {
+      void copyCodeBlock(block, false);
+      return true;
+    }
+    return false;
   };
 
   useEffect(() => {
@@ -608,6 +633,11 @@ function Viewer() {
       }
     }
   }, [html, loadRemoteImages]);
+
+  useLayoutEffect(() => {
+    if (!scrollRef.current) return;
+    enhanceCodeBlocks(scrollRef.current);
+  }, [html]);
 
   useEffect(
     () => () => {
@@ -706,7 +736,19 @@ function Viewer() {
         data-current-fragment={currentFragment ?? undefined}
         data-testid="markdown-body"
         onClick={(event) => {
+          if (handleCodeAction(event.target)) {
+            event.preventDefault();
+            return;
+          }
           if (handleMarkdownLink(event.target)) event.preventDefault();
+        }}
+        onContextMenu={(event) => {
+          const block = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+            ".mdv-code-block",
+          );
+          if (!block?.dataset.codeBlockId) return;
+          event.preventDefault();
+          setCodeMenu({ blockId: block.dataset.codeBlockId, x: event.clientX, y: event.clientY });
         }}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
@@ -767,6 +809,13 @@ function Viewer() {
               </div>
             ) : null}
             <div dangerouslySetInnerHTML={{ __html: html }} />
+            {codeMenu ? (
+              <CodeBlockMenu
+                block={codeBlockForId(codeMenu.blockId)}
+                menu={codeMenu}
+                onClose={() => setCodeMenu(null)}
+              />
+            ) : null}
           </>
         ) : (
           <div className="py-[12vh] text-center text-[var(--muted)]">
@@ -777,6 +826,170 @@ function Viewer() {
       </article>
     </section>
   );
+}
+
+function CodeBlockMenu({
+  block,
+  menu,
+  onClose,
+}: {
+  block: HTMLElement | null;
+  menu: { blockId: string; x: number; y: number };
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const close = () => onClose();
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [onClose]);
+
+  if (!block) return null;
+  const left = Math.min(menu.x, window.innerWidth - 180);
+  const top = Math.min(menu.y, window.innerHeight - 112);
+  const code = codeText(block);
+  const language = codeLanguage(block);
+  const canCopyWithoutPrompts = hasShellPrompts(code, language);
+
+  return (
+    <div
+      className="mdv-context-menu"
+      role="menu"
+      style={{ left, top }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <MenuButton
+        disabled={false}
+        onClick={() => {
+          void copyCodeBlock(block, false);
+          onClose();
+        }}
+      >
+        Copy Code
+      </MenuButton>
+      <MenuButton
+        disabled={false}
+        onClick={() => {
+          toggleCodeWrap(block);
+          onClose();
+        }}
+      >
+        {block.classList.contains("mdv-code-wrap") ? "Disable Wrap" : "Wrap Long Lines"}
+      </MenuButton>
+      {canCopyWithoutPrompts ? (
+        <MenuButton
+          disabled={false}
+          onClick={() => {
+            void copyCodeBlock(block, true);
+            onClose();
+          }}
+        >
+          Copy Without Prompts
+        </MenuButton>
+      ) : null}
+    </div>
+  );
+}
+
+function enhanceCodeBlocks(root: HTMLElement) {
+  const blocks = Array.from(root.querySelectorAll<HTMLPreElement>("pre.code-block"));
+  blocks.forEach((pre, index) => {
+    if (pre.closest(".mdv-code-block")) return;
+    const code = pre.querySelector<HTMLElement>("code");
+    const language = pre.dataset.mdvCodeLanguage ?? "";
+    const wrapper = document.createElement("div");
+    wrapper.className = "mdv-code-block";
+    wrapper.dataset.codeBlockId = `code-${index}`;
+    wrapper.dataset.codeLanguage = language;
+    wrapper.dataset.hasShellPrompts = String(hasShellPrompts(code?.textContent ?? "", language));
+
+    const chrome = document.createElement("div");
+    chrome.className = "mdv-code-chrome";
+
+    const label = document.createElement("span");
+    label.className = "mdv-code-language";
+    label.textContent = language;
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "mdv-code-toolbar";
+    toolbar.append(
+      codeIconButton("wrap", "Wrap long lines", "text.append"),
+      codeIconButton("copy", "Copy code", "doc.on.doc"),
+    );
+
+    chrome.append(label, toolbar);
+    pre.replaceWith(wrapper);
+    wrapper.append(chrome, pre);
+  });
+}
+
+function codeIconButton(action: "copy" | "wrap", label: string, symbol: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "mdv-code-button";
+  button.dataset.codeAction = action;
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.innerHTML = iconMarkup(symbol);
+  return button;
+}
+
+function toggleCodeWrap(block: HTMLElement) {
+  const wrapped = block.classList.toggle("mdv-code-wrap");
+  const button = block.querySelector<HTMLButtonElement>('[data-code-action="wrap"]');
+  if (!button) return;
+  button.setAttribute("aria-label", wrapped ? "Disable wrap" : "Wrap long lines");
+  button.title = wrapped ? "Disable wrap" : "Wrap long lines";
+  button.setAttribute("aria-pressed", String(wrapped));
+  button.innerHTML = iconMarkup(wrapped ? "text.alignleft" : "text.append");
+}
+
+async function copyCodeBlock(block: HTMLElement, withoutPrompts: boolean) {
+  const raw = codeText(block);
+  const text = withoutPrompts ? stripShellPrompts(raw) : raw;
+  await navigator.clipboard.writeText(text);
+  flashCodeCopied(block);
+}
+
+function flashCodeCopied(block: HTMLElement) {
+  const button = block.querySelector<HTMLButtonElement>('[data-code-action="copy"]');
+  if (!button) return;
+  const token = String(Date.now());
+  block.dataset.copyGeneration = token;
+  button.dataset.copied = "true";
+  button.setAttribute("aria-label", "Copied");
+  button.title = "Copied";
+  button.innerHTML = iconMarkup("checkmark");
+  window.setTimeout(() => {
+    if (block.dataset.copyGeneration !== token) return;
+    button.dataset.copied = "false";
+    button.setAttribute("aria-label", "Copy code");
+    button.title = "Copy code";
+    button.innerHTML = iconMarkup("doc.on.doc");
+  }, 1200);
+}
+
+function codeText(block: HTMLElement): string {
+  return block.querySelector("code")?.textContent ?? "";
+}
+
+function codeLanguage(block: HTMLElement): string {
+  return block.dataset.codeLanguage ?? "";
+}
+
+function iconMarkup(symbol: string): string {
+  const paths: Record<string, string> = {
+    checkmark: '<path d="m5.5 12.4 4.1 4.1 8.9-9" />',
+    "doc.on.doc":
+      '<path d="M8.25 7.25h8.5v11.5h-8.5V7.25Z" /><path d="M5.25 15.75V4.25h8.5M5.25 4.25h8.5v3" />',
+    "text.alignleft": '<path d="M5 7h14M5 11h10M5 15h14M5 19h8" />',
+    "text.append":
+      '<path d="M5 7h14M5 11h10M5 15h14M5 19h8" /><path d="m17 16.25 2.75 2.75L17 21.75" />',
+  };
+  return `<svg aria-hidden="true" class="mdv-symbol" data-sf-symbol="${symbol}" viewBox="0 0 24 24">${paths[symbol] ?? ""}</svg>`;
 }
 
 function Inspector() {
@@ -1398,6 +1611,8 @@ function Icon({ name }: { name: IconName }) {
     chevronDown: "chevron.down",
     chevronRight: "chevron.right",
     chevronUp: "chevron.up",
+    checkmark: "checkmark",
+    docOnDoc: "doc.on.doc",
     docText: "doc.text",
     listBulletIndent: "list.bullet.indent",
     magnifyingglass: "magnifyingglass",
@@ -1406,6 +1621,8 @@ function Icon({ name }: { name: IconName }) {
     pinFill: "pin.fill",
     plus: "plus",
     sidebarRight: "sidebar.right",
+    textAlignleft: "text.alignleft",
+    textAppend: "text.append",
     trash: "trash",
     xmark: "xmark",
   };
@@ -1417,6 +1634,13 @@ function Icon({ name }: { name: IconName }) {
     chevronDown: <path d="m6.75 9.25 5.25 5.5 5.25-5.5" />,
     chevronRight: <path d="m9.25 6.75 5.5 5.25-5.5 5.25" />,
     chevronUp: <path d="m6.75 14.75 5.25-5.5 5.25 5.5" />,
+    checkmark: <path d="m5.5 12.4 4.1 4.1 8.9-9" />,
+    docOnDoc: (
+      <>
+        <path d="M8.25 7.25h8.5v11.5h-8.5V7.25Z" />
+        <path d="M5.25 15.75V4.25h8.5M5.25 4.25h8.5v3" />
+      </>
+    ),
     docText: (
       <>
         <path d="M7 3.75h6.25L17 7.5v12.75H7V3.75Z" />
@@ -1454,6 +1678,13 @@ function Icon({ name }: { name: IconName }) {
       <>
         <path d="M4.75 5.25h14.5v13.5H4.75V5.25Z" />
         <path d="M14.25 5.25v13.5" />
+      </>
+    ),
+    textAlignleft: <path d="M5 7h14M5 11h10M5 15h14M5 19h8" />,
+    textAppend: (
+      <>
+        <path d="M5 7h14M5 11h10M5 15h14M5 19h8" />
+        <path d="m17 16.25 2.75 2.75L17 21.75" />
       </>
     ),
     trash: (

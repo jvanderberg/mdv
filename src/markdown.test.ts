@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import manifest from "../tests/parity/fixtures.json";
 import {
+  displayCodeLanguage,
+  hasShellPrompts,
+  resolveHighlightLanguage,
+  stripShellPrompts,
+} from "./codeBlocks";
+import {
   bookmarkFingerprint,
   canInlineHighlightMarkdownBlock,
   findBlockMatches,
@@ -82,6 +88,26 @@ describe("markdown parity contract", () => {
     const html = renderMarkdown(markdown).html;
     expect(html).toContain("code-block");
     expect(html).toContain("hljs");
+  });
+
+  it("matches mdv code language label and alias rules", () => {
+    expect(displayCodeLanguage("Python title=tool.py")).toBe("python");
+    expect(resolveHighlightLanguage("js")).toBe("javascript");
+    expect(resolveHighlightLanguage("node")).toBe("javascript");
+    expect(resolveHighlightLanguage("python3")).toBe("python");
+    expect(resolveHighlightLanguage("golang")).toBe("go");
+    expect(resolveHighlightLanguage("objc")).toBe("c");
+    expect(resolveHighlightLanguage("wat")).toBeNull();
+  });
+
+  it("matches mdv shell prompt stripping rules", () => {
+    const transcript = "$ pnpm install\n$ pnpm test\n# systemctl restart mdv\nplain output";
+    expect(hasShellPrompts(transcript, "shell")).toBe(true);
+    expect(hasShellPrompts("$ one\nplain\nplain", "bash")).toBe(false);
+    expect(hasShellPrompts("$ one\n# two", "python")).toBe(false);
+    expect(stripShellPrompts(transcript)).toBe(
+      "pnpm install\npnpm test\nsystemctl restart mdv\nplain output",
+    );
   });
 
   it("classifies image sources like mdv's local image provider", () => {

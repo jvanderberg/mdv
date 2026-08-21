@@ -598,21 +598,24 @@ Tests:
 Goal: bring over the “awesome code blocks” work.
 
 - Decide engine:
-  - Likely `highlight.js` short-term, tree-sitter/WASM or Rust-side highlighter
-    later if exact capture palettes matter.
-- Implement language label.
-- Implement copy button.
-- Implement wrap toggle.
-- Implement copy-without-prompts for shell blocks.
-- Implement right-click/menu equivalent.
+  - Done: `highlight.js` short-term renderer with Swift-compatible supported
+    language aliases.
+  - Remaining: tree-sitter/WASM or Rust-side highlighter if exact capture
+    palettes matter.
+- Done: Implement language label.
+- Done: Implement copy button.
+- Done: Implement wrap toggle.
+- Done: Implement copy-without-prompts for shell blocks.
+- Done: Implement right-click/menu equivalent.
 - Add per-theme code palettes.
 - Reduce bundle cost by loading language highlighters selectively.
 
 Tests:
 
-- Unit tests for language aliasing and shell prompt stripping.
-- Playwright tests for label, copy, wrap, shell copy, long-line scroll, and
-  each fixture language.
+- Done: unit tests for language aliasing and shell prompt stripping.
+- Done: Playwright tests for label, copy, wrap, shell copy, and fixture
+  language coverage.
+- Remaining: explicit long-line scroll visual coverage.
 
 ### Phase 7 — Themes, Typography, Fonts, Zoom
 
