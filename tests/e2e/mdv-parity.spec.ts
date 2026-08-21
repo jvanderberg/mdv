@@ -630,6 +630,33 @@ test("visual shell stays readable without clipped chrome", async ({ page }, test
   expect(metrics.clippedSidebarControls).toBe(false);
 });
 
+test("toolbar uses the exact Swift mdv action symbols", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  const toolbar = page.getByTestId("app-toolbar");
+  await expect(toolbar.getByRole("button")).toHaveCount(5);
+  const symbols = await toolbar
+    .locator(".mdv-symbol")
+    .evaluateAll((icons) => icons.map((icon) => icon.getAttribute("data-sf-symbol")));
+  expect(symbols).toEqual(["plus", "pencil", "paintpalette", "bookmark", "sidebar.right"]);
+
+  await toolbar.getByRole("button", { name: "Bookmark" }).click();
+  const filledSymbols = await toolbar
+    .locator(".mdv-symbol")
+    .evaluateAll((icons) => icons.map((icon) => icon.getAttribute("data-sf-symbol")));
+  expect(filledSymbols).toEqual([
+    "plus",
+    "pencil",
+    "paintpalette",
+    "bookmark.fill",
+    "sidebar.right",
+  ]);
+});
+
 for (const fixture of manifest.documents) {
   test(`fixture screenshot is nonblank: ${fixture.path}`, async ({ page }, testInfo) => {
     test.skip(

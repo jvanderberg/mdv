@@ -1056,9 +1056,27 @@ function Muted({ children }: { children: ReactNode }) {
 }
 
 function Icon({ name }: { name: IconName }) {
+  const sfSymbols: Record<IconName, string> = {
+    bookmark: "bookmark",
+    bookmarkFill: "bookmark.fill",
+    chevronDown: "chevron.down",
+    chevronRight: "chevron.right",
+    chevronUp: "chevron.up",
+    docText: "doc.text",
+    listBulletIndent: "list.bullet.indent",
+    magnifyingglass: "magnifyingglass",
+    paintpalette: "paintpalette",
+    pencil: "pencil",
+    plus: "plus",
+    sidebarRight: "sidebar.right",
+    trash: "trash",
+    xmark: "xmark",
+  };
   const paths: Record<IconName, ReactNode> = {
     bookmark: <path d="M6.75 4.25h10.5v16.5L12 17.25l-5.25 3.5V4.25Z" />,
-    bookmarkFill: <path d="M6.75 4.25h10.5v16.5L12 17.25l-5.25 3.5V4.25Z" fill="currentColor" />,
+    bookmarkFill: (
+      <path d="M6.75 4.25h10.5v16.5L12 17.25l-5.25 3.5V4.25Z" fill="currentColor" stroke="none" />
+    ),
     chevronDown: <path d="m6.75 9.25 5.25 5.5 5.25-5.5" />,
     chevronRight: <path d="m9.25 6.75 5.5 5.25-5.5 5.25" />,
     chevronUp: <path d="m6.75 14.75 5.25-5.5 5.25 5.5" />,
@@ -1087,7 +1105,7 @@ function Icon({ name }: { name: IconName }) {
         <path d="m14.5 5.5 4 4" />
       </>
     ),
-    plus: <path d="M12 5v14M5 12h14" />,
+    plus: <path d="M12 5.25v13.5M5.25 12h13.5" />,
     sidebarRight: (
       <>
         <path d="M4.75 5.25h14.5v13.5H4.75V5.25Z" />
@@ -1104,7 +1122,12 @@ function Icon({ name }: { name: IconName }) {
   };
 
   return (
-    <svg aria-hidden="true" className="mdv-symbol" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className="mdv-symbol"
+      data-sf-symbol={sfSymbols[name]}
+      viewBox="0 0 24 24"
+    >
       {paths[name]}
     </svg>
   );

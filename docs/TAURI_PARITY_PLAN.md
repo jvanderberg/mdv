@@ -40,8 +40,6 @@ Current high-priority exact-parity gaps from the latest captures:
 
 - Remove native-capture compositing artifacts or isolate document-rendering
   comparisons so black outline artifacts do not mask real drift.
-- Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
-  native toolbar strategy if web SVG parity remains visibly off.
 
 Recently completed exact-parity slices:
 
@@ -80,6 +78,12 @@ Recently completed exact-parity slices:
   tracking, compact 26 px TOC rows, the custom compact heading filter field, and
   collapsed Bookmarks placement without a resize divider. Covered by the
   Playwright parity test `inspector typography and spacing match the Swift pane`.
+- The toolbar now exposes and tests the exact Swift `Image(systemName:)` symbol
+  contract: `plus`, `pencil`, `paintpalette`, `bookmark`/`bookmark.fill`, and
+  `sidebar.right`, with no extra Back/Forward/Folder/Zoom controls. Filled
+  bookmark rendering no longer draws a hollow stroke over the filled state.
+  Covered by the Playwright parity test `toolbar uses the exact Swift mdv action
+  symbols`.
 
 ## Current Tauri Baseline
 
