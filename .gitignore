@@ -1,9 +1,15 @@
 # SwiftPM build artifacts
 .build/
 .swiftpm/
+src-tauri/target/
 
 # Assembled .app bundle (created by ./build.sh)
 build/
+dist/
+node_modules/
+playwright-report/
+parity-artifacts/
+test-results/
 
 # Icon scratch dir (created by `make icon`)
 build_icon/

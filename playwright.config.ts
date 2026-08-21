@@ -1,0 +1,35 @@
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  timeout: 30_000,
+  expect: {
+    timeout: 5_000,
+  },
+  fullyParallel: true,
+  reporter: [["list"], ["html", { open: "never" }]],
+  use: {
+    baseURL: "http://127.0.0.1:1420",
+    trace: "on-first-retry",
+  },
+  webServer: {
+    command: "npm run dev",
+    url: "http://127.0.0.1:1420",
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+  projects: [
+    {
+      name: "chromium-desktop",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 820 } },
+    },
+    {
+      name: "webkit-mac",
+      use: { ...devices["Desktop Safari"], viewport: { width: 1280, height: 820 } },
+    },
+    {
+      name: "mobile",
+      use: { ...devices["iPhone 15"] },
+    },
+  ],
+});

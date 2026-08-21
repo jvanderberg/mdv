@@ -1,0 +1,57 @@
+{
+  "documents": [
+    {
+      "path": "test-docs/README.md",
+      "mustContain": ["# mdv Test Docs", "## What's here", "## Quick checklist"],
+      "minHeadings": 3,
+      "minBlocks": 8
+    },
+    {
+      "path": "test-docs/syntax.md",
+      "mustContain": ["# Markdown Syntax Tour", "Task lists", "Footnotes"],
+      "minHeadings": 8,
+      "minBlocks": 20
+    },
+    {
+      "path": "test-docs/code.md",
+      "mustContain": ["```rust", "```python", "```javascript"],
+      "minHeadings": 8,
+      "minBlocks": 10
+    },
+    {
+      "path": "test-docs/tables.md",
+      "mustContain": ["|", "---"],
+      "minHeadings": 2,
+      "minBlocks": 5
+    },
+    {
+      "path": "test-docs/images.md",
+      "mustContain": ["sample.png", "banner.png"],
+      "minHeadings": 2,
+      "minBlocks": 5
+    },
+    {
+      "path": "test-docs/links.md",
+      "mustContain": ["http", "mailto", "#"],
+      "minHeadings": 2,
+      "minBlocks": 5
+    },
+    {
+      "path": "test-docs/toc-stress.md",
+      "mustContain": ["#"],
+      "minHeadings": 20,
+      "minBlocks": 20
+    },
+    {
+      "path": "test-docs/prose.md",
+      "mustContain": ["#"],
+      "minHeadings": 1,
+      "minBlocks": 8
+    }
+  ],
+  "features": {
+    "codeLanguages": ["bash", "c", "go", "javascript", "python", "ruby", "rust", "toml", "yaml"],
+    "themes": ["paper", "charcoal", "solarized"],
+    "keyboardWorkflows": ["open", "find", "history-search", "toc", "bookmark", "theme", "zoom"]
+  }
+}

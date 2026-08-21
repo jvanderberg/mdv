@@ -1,0 +1,50 @@
+{
+  "name": "mdv-tauri",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:parity": "./scripts/parity.sh",
+    "instrument:native": "./scripts/instrument-native-mdv.sh",
+    "capture:native": "./scripts/instrument-native-mdv.sh",
+    "capture:tauri": "node scripts/capture-tauri.mjs",
+    "compare:visual": "npm run capture:native && npm run capture:tauri && node scripts/compare-captures.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@tauri-apps/plugin-opener": "^2.5.0",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.9",
+    "@playwright/test": "^1.57.0",
+    "@tauri-apps/cli": "^2.8.4",
+    "@types/markdown-it": "^14.1.2",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@tailwindcss/vite": "^4.1.17",
+    "@vitejs/plugin-react": "^6.1.0",
+    "pngjs": "^7.0.0",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.0.16"
+  }
+}

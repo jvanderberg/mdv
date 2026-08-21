@@ -185,6 +185,176 @@ struct mdvApp: App {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private var instrumentationWindow: NSWindow?
+    private var instrumentationHistory: HistoryManager?
+    private var instrumentationBookmarks: BookmarksManager?
+    private var instrumentationThemes: ThemeManager?
+    private var instrumentationKeepalive: Timer?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard ProcessInfo.processInfo.environment["MDV_INSTRUMENT_NATIVE_WINDOW"] == "1" else {
+            return
+        }
+
+        Self.instrumentationLog("applicationDidFinishLaunching")
+        NSApp.disableRelaunchOnLogin()
+        ProcessInfo.processInfo.disableAutomaticTermination("mdv native instrumentation")
+        instrumentationKeepalive = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.openInstrumentationWindow()
+        }
+    }
+
+    private func openInstrumentationWindow() {
+        let env = ProcessInfo.processInfo.environment
+        let doc = env["MDV_INSTRUMENT_NATIVE_DOC"].map { URL(fileURLWithPath: $0) }
+        UserDefaults.standard.set(false, forKey: "mdv_sidebar_collapsed")
+        UserDefaults.standard.set(true, forKey: "mdv_inspector_visible")
+        let history = HistoryManager()
+        let bookmarks = BookmarksManager()
+        let themes = ThemeManager()
+        let view = ContentView(initialURL: doc)
+            .environmentObject(history)
+            .environmentObject(bookmarks)
+            .environmentObject(themes)
+            .frame(minWidth: 760, minHeight: 520)
+        let hosting = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: hosting)
+
+        window.title = doc?.lastPathComponent ?? "mdv"
+        window.setFrame(NSRect(x: 120, y: 120, width: 1080, height: 720), display: true)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        NSApp.setActivationPolicy(.regular)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+
+        instrumentationHistory = history
+        instrumentationBookmarks = bookmarks
+        instrumentationThemes = themes
+        instrumentationWindow = window
+        NSApp.activate(ignoringOtherApps: true)
+        Self.instrumentationLog("windows=\(NSApp.windows.count), visible=\(window.isVisible), key=\(window.isKeyWindow)")
+        captureInstrumentationWindowIfRequested(window)
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        ProcessInfo.processInfo.environment["MDV_INSTRUMENT_NATIVE_WINDOW"] != "1"
+    }
+
+    private static func instrumentationLog(_ message: String) {
+        guard ProcessInfo.processInfo.environment["MDV_INSTRUMENT_NATIVE_WINDOW"] == "1" else {
+            return
+        }
+        FileHandle.standardError.write(Data("[mdv-instrument] \(message)\n".utf8))
+    }
+
+    private static func describeView(_ view: NSView, depth: Int = 0) -> String {
+        let indent = String(repeating: "  ", count: depth)
+        let layerName = view.layer.map { String(describing: type(of: $0)) } ?? "nil"
+        let line = "\(indent)\(type(of: view)) frame=\(view.frame) layer=\(layerName)"
+        let children = view.subviews.map { describeView($0, depth: depth + 1) }
+        return ([line] + children).joined(separator: "\n")
+    }
+
+    private func captureInstrumentationWindowIfRequested(_ window: NSWindow) {
+        guard let output = ProcessInfo.processInfo.environment["MDV_INSTRUMENT_NATIVE_CAPTURE"] else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+            guard let content = window.contentView else {
+                Self.instrumentationLog("capture failed: missing contentView")
+                return
+            }
+
+            let target = content.superview ?? content
+            let bounds = target.bounds
+            Self.instrumentationLog("view hierarchy:\n\(Self.describeView(target))")
+            if let documentView = Self.findLargestView(named: "DocumentView", in: target) {
+                let documentOutput = (output as NSString).deletingPathExtension + "-document.png"
+                Self.captureView(documentView, to: documentOutput, label: "document")
+            }
+            let pdfOutput = (output as NSString).deletingPathExtension + ".pdf"
+            let pdfData = target.dataWithPDF(inside: bounds)
+            do {
+                try pdfData.write(to: URL(fileURLWithPath: pdfOutput))
+                Self.instrumentationLog("captured \(pdfOutput)")
+            } catch {
+                Self.instrumentationLog("pdf capture failed: \(error)")
+            }
+
+            guard bounds.width > 0, bounds.height > 0,
+                  let rep = target.bitmapImageRepForCachingDisplay(in: bounds) else {
+                Self.instrumentationLog("capture failed: invalid bounds \(bounds)")
+                return
+            }
+
+            target.layoutSubtreeIfNeeded()
+            target.displayIfNeeded()
+            if let context = NSGraphicsContext(bitmapImageRep: rep) {
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = context
+                if let layer = target.layer {
+                    layer.render(in: context.cgContext)
+                } else {
+                    target.cacheDisplay(in: bounds, to: rep)
+                }
+                NSGraphicsContext.restoreGraphicsState()
+            } else {
+                target.cacheDisplay(in: bounds, to: rep)
+            }
+            guard let data = rep.representation(using: .png, properties: [:]) else {
+                Self.instrumentationLog("capture failed: png encoding")
+                return
+            }
+
+            do {
+                try data.write(to: URL(fileURLWithPath: output))
+                Self.instrumentationLog("captured \(output)")
+                NSApp.terminate(nil)
+            } catch {
+                Self.instrumentationLog("capture failed: \(error)")
+            }
+        }
+    }
+
+    private static func findLargestView(named name: String, in view: NSView) -> NSView? {
+        let matches = allViews(in: view).filter { String(describing: type(of: $0)).contains(name) }
+        return matches.max { ($0.bounds.width * $0.bounds.height) < ($1.bounds.width * $1.bounds.height) }
+    }
+
+    private static func allViews(in view: NSView) -> [NSView] {
+        [view] + view.subviews.flatMap { allViews(in: $0) }
+    }
+
+    private static func captureView(_ view: NSView, to output: String, label: String) {
+        let bounds = view.bounds
+        guard bounds.width > 0, bounds.height > 0,
+              let rep = view.bitmapImageRepForCachingDisplay(in: bounds) else {
+            instrumentationLog("\(label) capture failed: invalid bounds \(bounds)")
+            return
+        }
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+        view.cacheDisplay(in: bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            instrumentationLog("\(label) capture failed: png encoding")
+            return
+        }
+        do {
+            try data.write(to: URL(fileURLWithPath: output))
+            instrumentationLog("captured \(output)")
+        } catch {
+            instrumentationLog("\(label) capture failed: \(error)")
+        }
+    }
+
     func application(_ sender: NSApplication, open urls: [URL]) {
         // Always route into the active (or first) window's ContentView
         // via a notification, instead of letting SwiftUI spawn new windows.

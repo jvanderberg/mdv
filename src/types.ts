@@ -1,0 +1,60 @@
+export interface HistoryEntry {
+  path: string;
+  filename: string;
+  added_at: number;
+}
+
+export interface Bookmark {
+  id: number;
+  path: string;
+  title: string;
+  sort_order: number;
+  created_at: number;
+  block_index: number;
+  block_fingerprint: string;
+  file_exists: boolean;
+}
+
+export interface LoadedDocument {
+  path: string;
+  filename: string;
+  content: string;
+}
+
+export interface ScrollPosition {
+  path: string;
+  block_index: number;
+  block_fingerprint: string;
+  scroll_top: number;
+}
+
+export interface SearchHit {
+  path: string;
+  filename: string;
+  snippet: string;
+}
+
+export interface ResolvedLocalImage {
+  path: string;
+  exists: boolean;
+}
+
+export interface TocHeading {
+  id: string;
+  level: number;
+  text: string;
+  blockIndex: number;
+}
+
+declare global {
+  interface Window {
+    __MDV_TEST_API__?: import("./tauri").MdvApi;
+    __MDV_DROP_PATHS__?: (paths: string[]) => Promise<void>;
+    __MDV_OPEN_PATHS__?: (paths: string[]) => Promise<void>;
+    __MDV_PENDING_OPEN_PATHS__?: string[];
+    __MDV_EXTERNAL_CALLS__?: string[];
+    __MDV_OPEN_DOCUMENT__?: (path: string) => Promise<void>;
+    __MDV_REVEAL_CALLS__?: string[];
+    __MDV_RESOLVE_BOOKMARK__?: (blocks: string[], index: number, fingerprint: string) => number;
+  }
+}
