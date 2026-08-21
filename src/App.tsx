@@ -1,4 +1,12 @@
-import { type DragEventHandler, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type DragEventHandler,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
@@ -636,8 +644,13 @@ function Viewer() {
 }
 
 function Inspector() {
+  const inspectorRef = useRef<HTMLElement | null>(null);
+  const resizeStartRef = useRef<{ y: number; height: number } | null>(null);
   const [bookmarksExpanded, setBookmarksExpanded] = useState(
     () => localStorage.getItem("mdv.bookmarksExpanded") !== "false",
+  );
+  const [bookmarksHeight, setBookmarksHeight] = useState(() =>
+    clampBookmarksHeight(readStoredNumber("mdv.bookmarksHeight", 180), 240),
   );
   const [tocSearchVisible, setTocSearchVisible] = useState(false);
   const [tocSearchQuery, setTocSearchQuery] = useState("");
@@ -653,10 +666,45 @@ function Inspector() {
 
   if (!inspectorVisible) return null;
 
+  const maxBookmarksHeight = () => {
+    const totalHeight = inspectorRef.current?.getBoundingClientRect().height ?? 240;
+    return Math.max(120, totalHeight - 80 - 32 - 12);
+  };
+
+  const persistBookmarksHeight = (height: number) => {
+    localStorage.setItem("mdv.bookmarksHeight", String(Math.round(height)));
+  };
+
+  const onResizePointerMove = (event: PointerEvent) => {
+    const start = resizeStartRef.current;
+    if (!start) return;
+    const nextHeight = clampBookmarksHeight(
+      start.height - (event.clientY - start.y),
+      maxBookmarksHeight(),
+    );
+    setBookmarksHeight(nextHeight);
+    persistBookmarksHeight(nextHeight);
+  };
+
+  const stopResize = () => {
+    if (!resizeStartRef.current) return;
+    resizeStartRef.current = null;
+    window.removeEventListener("pointermove", onResizePointerMove);
+    window.removeEventListener("pointerup", stopResize);
+  };
+
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    resizeStartRef.current = { y: event.clientY, height: bookmarksHeight };
+    window.addEventListener("pointermove", onResizePointerMove);
+    window.addEventListener("pointerup", stopResize);
+  };
+
   return (
     <aside
+      ref={inspectorRef}
       aria-label="Table of contents"
-      className="grid w-full grid-rows-[minmax(0,1fr)_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] lg:w-[240px] lg:border-t-0 lg:border-l"
+      className="grid w-full grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] lg:w-[240px] lg:border-t-0 lg:border-l"
     >
       <div className="min-h-0 overflow-auto p-4">
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -683,6 +731,13 @@ function Inspector() {
           <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
+      {bookmarksExpanded ? (
+        <div
+          className="mdv-inspector-resizer"
+          data-testid="bookmarks-resizer"
+          onPointerDown={startResize}
+        />
+      ) : null}
       <div className="border-[var(--border)] border-t" data-testid="bookmarks">
         <button
           className="flex h-8 w-full items-center gap-1.5 px-3.5 py-2 text-left"
@@ -706,7 +761,11 @@ function Inspector() {
           ) : null}
         </button>
         {bookmarksExpanded ? (
-          <div className="grid gap-0.5 px-2 pb-3">
+          <div
+            className="grid overflow-auto px-2 pb-3"
+            data-testid="bookmarks-content"
+            style={{ height: `${bookmarksHeight}px` }}
+          >
             <BookmarkRows bookmarks={bookmarks} />
           </div>
         ) : null}
@@ -1004,6 +1063,15 @@ function documentPlaceholder(label: string): HTMLSpanElement {
 
 function filenameForPath(path: string): string {
   return path.split("/").at(-1) ?? path;
+}
+
+function readStoredNumber(key: string, fallback: number): number {
+  const value = Number(localStorage.getItem(key));
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function clampBookmarksHeight(height: number, maxHeight: number): number {
+  return Math.max(120, Math.min(Math.max(120, maxHeight), Math.round(height)));
 }
 
 function topVisibleHeadingId(scroller: HTMLElement): string | null {

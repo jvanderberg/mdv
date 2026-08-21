@@ -265,13 +265,15 @@ test("sidebar and bookmark rows preserve Swift visual density", async ({ page })
 
 test("bookmarks track current selection and can be reordered", async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path), [
-    abs("test-docs/README.md"),
-  ]);
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
   await clickToolbarBookmark(page);
-  await page.evaluate(async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path), [
-    abs("test-docs/syntax.md"),
-  ]);
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/syntax.md")],
+  );
   await clickToolbarBookmark(page);
   await ensureInspector(page);
   await ensureBookmarksExpanded(page);
@@ -285,6 +287,35 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
 
   await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("bookmark-slot-1"));
   await expect(page.getByText("syntax.md").first()).toBeVisible();
+});
+
+test("bookmarks pane resizes and persists its height", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+  await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
+
+  const content = page.getByTestId("bookmarks-content");
+  const initialHeight = await content.evaluate((element) => element.getBoundingClientRect().height);
+  const box = await page.getByTestId("bookmarks-resizer").boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 44);
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => content.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThan(initialHeight + 2);
+  const storedHeight = await page.evaluate(() =>
+    Number(localStorage.getItem("mdv.bookmarksHeight")),
+  );
+  expect(storedHeight).toBeGreaterThan(initialHeight + 2);
 });
 
 test("history and bookmark deletion workflows update persisted lists", async ({ page }) => {
@@ -768,7 +799,7 @@ async function ensureInspector(page: Page) {
 }
 
 async function ensureBookmarksExpanded(page: Page) {
-  const button = page.getByRole("button", { name: "Bookmarks" });
+  const button = page.getByTestId("bookmarks").getByRole("button", { name: "Bookmarks" });
   if ((await button.getAttribute("aria-expanded")) !== "true") {
     await button.click();
   }

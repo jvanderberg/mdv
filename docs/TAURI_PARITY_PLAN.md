@@ -43,7 +43,7 @@ Current high-priority exact-parity gaps from the latest captures:
 - Match inspector typography/spacing and collapsed Bookmarks placement.
 - Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
   native toolbar strategy if web SVG parity remains visibly off.
-- Implement bookmark pane resizing and true top-visible block tracking.
+- Implement true top-visible block tracking.
 
 Recently completed exact-parity slices:
 
@@ -68,6 +68,10 @@ Recently completed exact-parity slices:
   drag-to-reorder in the inspector, and preserve slot shortcut semantics after a
   reorder. Covered by the Rust bookmark order test and the Playwright parity test
   `bookmarks track current selection and can be reordered`.
+- The bookmarks pane now has the Swift-style 12 px resize divider, clamps to a
+  minimum useful height while preserving TOC room, and persists its height in
+  `mdv.bookmarksHeight`. Covered by the Playwright parity test `bookmarks pane
+  resizes and persists its height`.
 
 ## Current Tauri Baseline
 

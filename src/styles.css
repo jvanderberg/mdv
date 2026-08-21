@@ -198,6 +198,26 @@ button {
   line-height: 1;
 }
 
+.mdv-inspector-resizer {
+  display: grid;
+  height: 12px;
+  cursor: ns-resize;
+  place-items: center;
+}
+
+.mdv-inspector-resizer::before {
+  display: block;
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  content: "";
+}
+
+.mdv-inspector-resizer:hover::before {
+  height: 2px;
+  background: var(--divider);
+}
+
 .mdv-find-input {
   width: 160px;
   border: 0;
