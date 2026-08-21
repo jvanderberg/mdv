@@ -35,11 +35,20 @@ rm -f "$DB_PATH" "$DB_PATH-shm" "$DB_PATH-wal"
 
 APP_EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
 launchctl setenv MDV_TAURI_DB_PATH "$DB_PATH"
-trap 'launchctl unsetenv MDV_TAURI_DB_PATH >/dev/null 2>&1 || true; pkill -x "$APP_EXECUTABLE" >/dev/null 2>&1 || true' EXIT
+launchctl setenv MDV_INSTRUMENT_TAURI_CAPTURE "$OUT_PATH"
+trap 'launchctl unsetenv MDV_TAURI_DB_PATH >/dev/null 2>&1 || true; launchctl unsetenv MDV_INSTRUMENT_TAURI_CAPTURE >/dev/null 2>&1 || true; pkill -x "$APP_EXECUTABLE" >/dev/null 2>&1 || true' EXIT
 open -n "$APP_PATH" --args "$DOC_PATH" > "$OUT_DIR/tauri-mdv.log" 2>&1
 launchctl unsetenv MDV_TAURI_DB_PATH >/dev/null 2>&1 || true
+launchctl unsetenv MDV_INSTRUMENT_TAURI_CAPTURE >/dev/null 2>&1 || true
 
-sleep 3
+for _ in $(seq 1 60); do
+  if [ -s "$OUT_PATH" ]; then
+    echo "captured Tauri mdv window from app instrumentation: $OUT_PATH"
+    exit 0
+  fi
+  sleep 0.25
+done
+
 WINDOW_META="$(swift - <<'SWIFT'
 import CoreGraphics
 import Foundation

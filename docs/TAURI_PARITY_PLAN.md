@@ -38,13 +38,6 @@ Every completed slice must satisfy these gates:
 
 Current high-priority exact-parity gaps from the latest captures:
 
-- Replace Chromium-based Tauri visual capture with actual Tauri macOS app
-  capture, so titlebar/traffic-light/toolbar parity is measured honestly.
-  Current status: `npm run capture:tauri` now launches the real bundled macOS app
-  and refuses to pass on browser or black full-screen fallback captures.
-  ScreenCaptureKit sees the Tauri window but returns
-  `SCStreamErrorDomain Code=-3811`, so this gate is intentionally failing until
-  the runner has a reliable app-level or permissioned window-capture path.
 - Remove native-capture compositing artifacts or isolate document-rendering
   comparisons so black outline artifacts do not mask real drift.
 - Match native history row density, document icon tint, selected-row radius, and
@@ -64,6 +57,10 @@ Recently completed exact-parity slices:
 - The bookmarks section now defaults expanded and persists the user collapsed
   state through `mdv.bookmarksExpanded`, matching the inspector's always-present
   bookmarks-below-TOC structure more closely.
+- Real Tauri app visual capture no longer uses a browser stand-in or black
+  screen-capture fallback. The app writes its own AppKit PNG capture when
+  `MDV_INSTRUMENT_TAURI_CAPTURE` is set, and the default Tauri window uses light
+  native chrome so the titlebar matches the Swift capture gate.
 
 ## Current Tauri Baseline
 

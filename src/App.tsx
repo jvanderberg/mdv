@@ -21,6 +21,8 @@ export function App() {
   const theme = useAppStore((state) => state.theme);
   const zoom = useAppStore((state) => state.zoom);
   const api = useAppStore((state) => state.api);
+  const currentDocument = useAppStore((state) => state.document);
+  const html = useAppStore((state) => state.html);
   const addBookmarkAtCurrentSpot = useAppStore((state) => state.addBookmarkAtCurrentSpot);
   const chooseAndOpenDocument = useAppStore((state) => state.chooseAndOpenDocument);
   const chooseEditor = useAppStore((state) => state.chooseEditor);
@@ -50,6 +52,22 @@ export function App() {
   useEffect(() => {
     void refreshLists();
   }, [refreshLists]);
+
+  useEffect(() => {
+    if (!currentDocument || !html) return;
+    let cancelled = false;
+    const capture = async () => {
+      const outputPath = await api.instrumentationCapturePath?.();
+      if (!outputPath || cancelled) return;
+      window.setTimeout(() => {
+        if (!cancelled) void api.captureTauriWindow?.(outputPath);
+      }, 900);
+    };
+    void capture();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, currentDocument, html]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;

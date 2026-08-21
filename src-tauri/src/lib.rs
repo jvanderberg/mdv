@@ -11,7 +11,7 @@ use std::{
 };
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    AppHandle, Emitter, Manager, State,
+    AppHandle, Emitter, Manager, State, Theme, WebviewWindow,
 };
 use thiserror::Error;
 
@@ -646,6 +646,66 @@ fn app_db_path(app: &AppHandle) -> MdvResult<PathBuf> {
     Ok(dir.join("mdv-tauri.db"))
 }
 
+#[tauri::command]
+fn instrumentation_capture_path() -> Option<String> {
+    env::var("MDV_INSTRUMENT_TAURI_CAPTURE").ok()
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn capture_tauri_window(window: WebviewWindow, output_path: String) -> MdvResult<()> {
+    capture_tauri_window_macos(window, output_path)
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn capture_tauri_window(_window: WebviewWindow, _output_path: String) -> MdvResult<()> {
+    Err(MdvError::App(
+        "Tauri window capture instrumentation is only implemented on macOS".into(),
+    ))
+}
+
+#[cfg(target_os = "macos")]
+fn capture_tauri_window_macos(window: WebviewWindow, output_path: String) -> MdvResult<()> {
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRepPropertyKey, NSWindow};
+    use objc2_foundation::{NSDictionary, NSString};
+
+    let ns_window = window.ns_window().map_err(|err| MdvError::App(err.to_string()))?;
+    if ns_window.is_null() {
+        return Err(MdvError::App("Tauri window has no NSWindow pointer".into()));
+    }
+
+    let png = unsafe {
+        let ns_window = &*(ns_window.cast::<NSWindow>());
+        let content = ns_window
+            .contentView()
+            .ok_or_else(|| MdvError::App("NSWindow has no contentView".into()))?;
+        let target = content.superview().unwrap_or(content);
+        target.layoutSubtreeIfNeeded();
+        target.displayIfNeeded();
+
+        let bounds = target.bounds();
+        let bitmap = target
+            .bitmapImageRepForCachingDisplayInRect(bounds)
+            .ok_or_else(|| MdvError::App("AppKit could not allocate a capture bitmap".into()))?;
+        target.cacheDisplayInRect_toBitmapImageRep(bounds, &bitmap);
+
+        let properties = NSDictionary::<NSBitmapImageRepPropertyKey, AnyObject>::dictionary();
+        bitmap
+            .representationUsingType_properties(NSBitmapImageFileType::PNG, &properties)
+            .ok_or_else(|| MdvError::App("AppKit could not encode the capture as PNG".into()))?
+    };
+
+    let output = NSString::from_str(&output_path);
+    if !png.writeToFile_atomically(&output, true) {
+        return Err(MdvError::App(format!(
+            "AppKit could not write Tauri capture to {output_path}"
+        )));
+    }
+    Ok(())
+}
+
 fn filename(path: &Path) -> String {
     path.file_name()
         .and_then(|name| name.to_str())
@@ -1063,6 +1123,9 @@ pub fn run() {
                 db: Mutex::new(store),
                 pending_open_paths: Mutex::new(supported_open_args(env::args_os().skip(1))),
             });
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_theme(Some(Theme::Light))?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1079,7 +1142,9 @@ pub fn run() {
             load_scroll_position,
             take_pending_open_paths,
             open_in_editor,
-            install_cli
+            install_cli,
+            instrumentation_capture_path,
+            capture_tauri_window
         ])
         .build(tauri::generate_context!())
         .expect("error while building mdv")
