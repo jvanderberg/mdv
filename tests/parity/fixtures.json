@@ -19,6 +19,12 @@
       "mustContain": ["Shell Prompt Copy", "pnpm install"]
     },
     {
+      "path": "test-docs/code-long-line.md",
+      "minBlocks": 2,
+      "minHeadings": 1,
+      "mustContain": ["Long Code Lines", "veryLongLine"]
+    },
+    {
       "path": "test-docs/code.md",
       "mustContain": ["```rust", "```python", "```javascript"],
       "minHeadings": 8,

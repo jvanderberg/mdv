@@ -609,7 +609,8 @@ Goal: bring over the “awesome code blocks” work.
 - Done: Implement right-click/menu equivalent.
 - Done: Add per-theme code palettes for the currently implemented Tauri
   themes (`paper`, `charcoal`, `solarized`) using Swift CodePalette values.
-- Reduce bundle cost by loading language highlighters selectively.
+- Done: Reduce bundle cost by loading language highlighters selectively for
+  supported mdv languages.
 
 Tests:
 
@@ -618,7 +619,7 @@ Tests:
   language coverage.
 - Done: Playwright coverage for code token palette changes across implemented
   themes.
-- Remaining: explicit long-line scroll visual coverage.
+- Done: explicit long-line scroll/wrap coverage.
 
 ### Phase 7 — Themes, Typography, Fonts, Zoom
 

@@ -809,6 +809,28 @@ test("code blocks expose mdv chrome, copy, and per-block wrap", async ({ page })
   await expect(firstBlock.locator('.mdv-symbol[data-sf-symbol="checkmark"]')).toBeVisible();
 });
 
+test("long code lines scroll until wrap is enabled", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/code-long-line.md")],
+  );
+
+  const block = page.locator(".mdv-code-block").first();
+  const pre = block.locator("pre.code-block");
+  const scrollMetrics = await pre.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(scrollMetrics.scrollWidth).toBeGreaterThan(scrollMetrics.clientWidth);
+
+  await block.hover();
+  await block.getByRole("button", { name: "Wrap long lines" }).click();
+  await expect
+    .poll(async () => pre.evaluate((element) => element.scrollWidth <= element.clientWidth + 1))
+    .toBe(true);
+});
+
 test("shell code context menu can copy without prompts", async ({ page }) => {
   await mockClipboard(page);
   await page.goto("/");
