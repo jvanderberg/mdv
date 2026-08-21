@@ -48,6 +48,7 @@ export interface MdvApi {
   }): Promise<Bookmark>;
   listBookmarks(): Promise<Bookmark[]>;
   removeBookmark(id: number): Promise<void>;
+  reorderBookmarks(ids: number[]): Promise<Bookmark[]>;
   instrumentationCapturePath?: () => Promise<string | null>;
   captureTauriWindow?: (outputPath: string) => Promise<void>;
 }
@@ -154,6 +155,9 @@ export const api: MdvApi = {
   },
   removeBookmark(id) {
     return tauriInvoke("remove_bookmark", { id });
+  },
+  reorderBookmarks(ids) {
+    return tauriInvoke("reorder_bookmarks", { ids });
   },
   instrumentationCapturePath() {
     return tauriInvoke("instrumentation_capture_path");

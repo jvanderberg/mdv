@@ -43,8 +43,7 @@ Current high-priority exact-parity gaps from the latest captures:
 - Match inspector typography/spacing and collapsed Bookmarks placement.
 - Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
   native toolbar strategy if web SVG parity remains visibly off.
-- Implement bookmark pane resizing, bookmark reorder/current state, and true
-  top-visible block tracking.
+- Implement bookmark pane resizing and true top-visible block tracking.
 
 Recently completed exact-parity slices:
 
@@ -64,6 +63,11 @@ Recently completed exact-parity slices:
   bookmark subtitles, Swift-like bookmark empty-state copy, and a count badge.
   Covered by the Playwright parity test `sidebar and bookmark rows preserve
   Swift visual density`.
+- Bookmarks now track the current opened bookmark independently from the current
+  file, persist reordered sort order through a Rust/Tauri command, support
+  drag-to-reorder in the inspector, and preserve slot shortcut semantics after a
+  reorder. Covered by the Rust bookmark order test and the Playwright parity test
+  `bookmarks track current selection and can be reordered`.
 
 ## Current Tauri Baseline
 

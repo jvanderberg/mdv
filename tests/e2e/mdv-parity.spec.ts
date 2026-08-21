@@ -263,6 +263,30 @@ test("sidebar and bookmark rows preserve Swift visual density", async ({ page })
   await expect(bookmarkRow).not.toContainText(abs("test-docs/syntax.md"));
 });
 
+test("bookmarks track current selection and can be reordered", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path), [
+    abs("test-docs/README.md"),
+  ]);
+  await clickToolbarBookmark(page);
+  await page.evaluate(async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path), [
+    abs("test-docs/syntax.md"),
+  ]);
+  await clickToolbarBookmark(page);
+  await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
+
+  const bookmarkRows = page.locator(".mdv-document-row[data-row-variant='bookmark']");
+  await expect(bookmarkRows).toHaveCount(2);
+  await expect(bookmarkRows.nth(1)).toHaveAttribute("data-selected", "true");
+
+  await bookmarkRows.nth(1).dragTo(bookmarkRows.nth(0));
+  await expect(bookmarkRows.first()).toContainText("Markdown Syntax Tour");
+
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("bookmark-slot-1"));
+  await expect(page.getByText("syntax.md").first()).toBeVisible();
+});
+
 test("history and bookmark deletion workflows update persisted lists", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -699,6 +723,17 @@ async function installMockApi(page: Page) {
           bookmarks.forEach((bookmark, index) => {
             bookmark.sort_order = index;
           });
+        },
+        async reorderBookmarks(ids: number[]) {
+          const reordered = ids
+            .map((id) => bookmarks.find((bookmark) => bookmark.id === id))
+            .filter((bookmark) => bookmark !== undefined);
+          if (reordered.length !== bookmarks.length) throw new Error("invalid bookmark order");
+          bookmarks.splice(0, bookmarks.length, ...reordered);
+          bookmarks.forEach((bookmark, index) => {
+            bookmark.sort_order = index;
+          });
+          return bookmarks;
         },
       };
       window.__MDV_DROP_PATHS__ = async (paths: string[]) => {

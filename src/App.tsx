@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type DragEventHandler, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
@@ -755,7 +755,10 @@ function SearchHits({ hits }: { hits: SearchHit[] }) {
 }
 
 function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
-  const openDocument = useAppStore((state) => state.openDocument);
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const activeBookmarkId = useAppStore((state) => state.activeBookmarkId);
+  const openBookmark = useAppStore((state) => state.openBookmark);
+  const reorderBookmarks = useAppStore((state) => state.reorderBookmarks);
   const revealPath = useAppStore((state) => state.revealPath);
   const removeBookmark = useAppStore((state) => state.removeBookmark);
   if (bookmarks.length === 0) {
@@ -783,11 +786,36 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
       muted={!bookmark.file_exists}
       variant="bookmark"
       iconName={bookmark.file_exists ? "bookmarkFill" : "docText"}
+      selected={activeBookmarkId === bookmark.id}
+      draggable
       revealLabel={`Reveal bookmark ${bookmark.title} in Finder`}
       removeLabel={`Remove bookmark ${bookmark.title}`}
+      onDragStart={(event) => {
+        setDraggingId(bookmark.id);
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", String(bookmark.id));
+      }}
+      onDragEnd={() => setDraggingId(null)}
+      onDragOver={(event) => {
+        if (draggingId === null || draggingId === bookmark.id) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        const sourceId = Number(event.dataTransfer.getData("text/plain") || draggingId);
+        if (!Number.isInteger(sourceId) || sourceId === bookmark.id) return;
+        const ids = bookmarks.map((entry) => entry.id);
+        const sourceIndex = ids.indexOf(sourceId);
+        const targetIndex = ids.indexOf(bookmark.id);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+        ids.splice(sourceIndex, 1);
+        ids.splice(targetIndex, 0, sourceId);
+        void reorderBookmarks(ids);
+      }}
       onReveal={() => void revealPath(bookmark.path)}
       onRemove={() => void removeBookmark(bookmark.id)}
-      onClick={() => void openDocument(bookmark.path)}
+      onClick={() => void openBookmark(bookmark.id)}
     />
   ));
 }
@@ -815,42 +843,60 @@ function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[]
 }
 
 function DocumentRow({
+  draggable = false,
   iconName = "docText",
   muted = false,
   onClick,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
   onReveal,
   onRemove,
   revealLabel,
   removeLabel,
   path,
+  selected: selectedOverride,
   subtitle,
   subtitleMode = "tail",
   title,
   variant = "history",
 }: {
+  draggable?: boolean;
   iconName?: IconName;
   muted?: boolean;
   onClick: () => void;
+  onDragEnd?: DragEventHandler<HTMLLIElement>;
+  onDragOver?: DragEventHandler<HTMLLIElement>;
+  onDragStart?: DragEventHandler<HTMLLIElement>;
+  onDrop?: DragEventHandler<HTMLLIElement>;
   onReveal?: () => void;
   onRemove?: () => void;
   revealLabel?: string;
   removeLabel?: string;
   path: string;
+  selected?: boolean;
   subtitle: string;
   subtitleMode?: "head" | "tail";
   title: string;
   variant?: "history" | "search" | "bookmark";
 }) {
   const currentPath = useAppStore((state) => state.document?.path);
-  const selected = currentPath === path;
+  const selected = selectedOverride ?? currentPath === path;
   return (
-    <div
-      className={`mdv-document-row group grid grid-cols-[16px_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-[5px] px-2 ${
+    <li
+      className={`mdv-document-row group grid list-none grid-cols-[16px_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-[5px] px-2 ${
         selected
           ? "bg-[color-mix(in_srgb,var(--chrome-text)_12%,transparent)]"
           : "hover:bg-[var(--panel-strong)]"
       } ${muted ? "opacity-60" : ""}`}
+      data-selected={selected ? "true" : "false"}
       data-row-variant={variant}
+      draggable={draggable}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragStart={onDragStart}
+      onDrop={onDrop}
     >
       <span className="mdv-row-icon">
         <Icon name={iconName} />
@@ -887,7 +933,7 @@ function DocumentRow({
           <Icon name="xmark" />
         </button>
       ) : null}
-    </div>
+    </li>
   );
 }
 

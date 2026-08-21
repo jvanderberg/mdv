@@ -17,6 +17,7 @@ export interface AppState {
   blocks: string[];
   toc: TocHeading[];
   activeTocHeadingId: string | null;
+  activeBookmarkId: number | null;
   history: HistoryEntry[];
   bookmarks: Bookmark[];
   globalHits: SearchHit[];
@@ -58,7 +59,9 @@ export interface AppState {
   setActiveTocHeadingId: (id: string | null) => void;
   consumePendingScrollTop: () => number | null;
   addBookmarkAtCurrentSpot: () => Promise<void>;
+  openBookmark: (id: number) => Promise<void>;
   openBookmarkSlot: (slot: number) => Promise<void>;
+  reorderBookmarks: (ids: number[]) => Promise<void>;
   setPlaceholder: () => void;
   jumpToPlaceholder: () => Promise<void>;
   removeHistoryEntry: (path: string) => Promise<void>;
@@ -91,6 +94,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   blocks: [],
   toc: [],
   activeTocHeadingId: null,
+  activeBookmarkId: null,
   history: [],
   bookmarks: [],
   globalHits: [],
@@ -177,6 +181,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentFragment: null,
       pendingScrollTop: scrollPosition?.scroll_top ?? 0,
       globalHits: [],
+      activeBookmarkId: null,
     });
     await get().refreshLists();
   },
@@ -309,20 +314,35 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { api, blocks, document, findMatches, toc, viewerScrollTop } = get();
     if (!document) return;
     const blockIndex = findMatches[0] ?? blockIndexForScroll(viewerScrollTop, blocks.length);
-    await api.addBookmark({
+    const bookmark = await api.addBookmark({
       path: document.path,
       title: toc[0]?.text ?? document.filename,
       blockIndex,
       blockFingerprint: bookmarkFingerprint(blocks[blockIndex] ?? ""),
     });
+    set({ activeBookmarkId: bookmark.id });
     await get().refreshLists();
+  },
+
+  async openBookmark(id) {
+    const bookmark = get().bookmarks.find((entry) => entry.id === id);
+    if (!bookmark) return;
+    await get().openDocument(bookmark.path);
+    set({ activeBookmarkId: bookmark.id, pendingScrollTop: bookmark.block_index * 220 });
   },
 
   async openBookmarkSlot(slot) {
     const bookmark = get().bookmarks[slot - 1];
     if (!bookmark) return;
-    await get().openDocument(bookmark.path);
-    set({ pendingScrollTop: bookmark.block_index * 220 });
+    await get().openBookmark(bookmark.id);
+  },
+
+  async reorderBookmarks(ids) {
+    const currentIds = get().bookmarks.map((bookmark) => bookmark.id);
+    const sameSet = ids.length === currentIds.length && currentIds.every((id) => ids.includes(id));
+    if (!sameSet) return;
+    const bookmarks = await get().api.reorderBookmarks(ids);
+    set({ bookmarks: [...bookmarks] });
   },
 
   setPlaceholder() {
@@ -357,6 +377,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   async removeBookmark(id) {
     await get().api.removeBookmark(id);
     set((state) => ({
+      activeBookmarkId: state.activeBookmarkId === id ? null : state.activeBookmarkId,
       bookmarks: state.bookmarks
         .filter((bookmark) => bookmark.id !== id)
         .map((bookmark, index) => ({ ...bookmark, sort_order: index })),

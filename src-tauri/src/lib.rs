@@ -336,6 +336,31 @@ impl Store {
         self.renormalize_bookmark_order()
     }
 
+    fn reorder_bookmarks(&self, ids: Vec<i64>) -> MdvResult<Vec<Bookmark>> {
+        let existing = {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT id FROM bookmarks ORDER BY sort_order, created_at")?;
+            let rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+        let mut expected = existing.clone();
+        let mut received = ids.clone();
+        expected.sort_unstable();
+        received.sort_unstable();
+        if expected != received {
+            return Err(MdvError::App("bookmark reorder ids do not match current bookmarks".into()));
+        }
+
+        for (sort_order, id) in ids.into_iter().enumerate() {
+            self.conn.execute(
+                "UPDATE bookmarks SET sort_order = ?1 WHERE id = ?2",
+                params![sort_order as i64, id],
+            )?;
+        }
+        self.list_bookmarks()
+    }
+
     fn save_scroll_position(
         &self,
         path: &str,
@@ -530,6 +555,15 @@ fn remove_bookmark(id: i64, state: State<'_, AppState>) -> MdvResult<()> {
         .lock()
         .map_err(|_| MdvError::App("database lock poisoned".into()))?
         .remove_bookmark(id)
+}
+
+#[tauri::command]
+fn reorder_bookmarks(ids: Vec<i64>, state: State<'_, AppState>) -> MdvResult<Vec<Bookmark>> {
+    state
+        .db
+        .lock()
+        .map_err(|_| MdvError::App("database lock poisoned".into()))?
+        .reorder_bookmarks(ids)
 }
 
 #[tauri::command]
@@ -1138,6 +1172,7 @@ pub fn run() {
             add_bookmark,
             list_bookmarks,
             remove_bookmark,
+            reorder_bookmarks,
             save_scroll_position,
             load_scroll_position,
             take_pending_open_paths,
@@ -1216,6 +1251,14 @@ mod tests {
         assert!(bookmarks[0].file_exists);
         assert_eq!(bookmarks[1].sort_order, 1);
         assert!(!bookmarks[1].file_exists);
+
+        let reordered = store
+            .reorder_bookmarks(vec![bookmarks[1].id, bookmarks[0].id])
+            .unwrap();
+        assert_eq!(reordered[0].title, "Missing");
+        assert_eq!(reordered[0].sort_order, 0);
+        assert_eq!(reordered[1].title, "Intro");
+        assert!(store.reorder_bookmarks(vec![bookmarks[0].id]).is_err());
 
         store.remove_bookmark(bookmarks[0].id).unwrap();
         let bookmarks = store.list_bookmarks().unwrap();
