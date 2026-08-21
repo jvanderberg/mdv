@@ -189,7 +189,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const loaded = await get().api.loadMarkdown(path);
     const rendered = renderMarkdown(loaded.content, {
       loadRemoteImages: get().loadRemoteImages,
-      typographer: get().smartTypography,
+      typographer: get().smartTypography && smartTypographyAllowed(get().theme),
     });
     const findMatches = findBlockMatches(rendered.blocks, get().findQuery);
     const scrollPosition = await get().api.loadScrollPosition(loaded.path);
@@ -479,6 +479,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTheme(theme) {
     localStorage.setItem("mdv.theme", theme);
     set({ theme });
+    rerenderCurrentDocument(set, get);
   },
 
   zoomIn() {
@@ -548,11 +549,11 @@ export function readStoredNumber(key: string, fallback: number): number {
 }
 
 function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get: () => AppState) {
-  const { document, findQuery, loadRemoteImages, smartTypography } = get();
+  const { document, findQuery, loadRemoteImages, smartTypography, theme } = get();
   if (!document) return;
   const rendered = renderMarkdown(document.content, {
     loadRemoteImages,
-    typographer: smartTypography,
+    typographer: smartTypography && smartTypographyAllowed(theme),
   });
   set({
     html: rendered.html,
@@ -561,6 +562,10 @@ function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get:
     activeTocHeadingId: rendered.toc[0]?.id ?? null,
     findMatches: findBlockMatches(rendered.blocks, findQuery),
   });
+}
+
+function smartTypographyAllowed(theme: Theme): boolean {
+  return !["phosphor", "standard-erin-light", "standard-erin-dark"].includes(theme);
 }
 
 type LinkTarget =

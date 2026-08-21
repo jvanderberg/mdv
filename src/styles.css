@@ -50,6 +50,7 @@
   --toolbar-icon: #3f3f46;
   --muted: #4b5563;
   --heading: #000000;
+  --strong: #0a0a0a;
   --border: #e5e7eb;
   --divider: #d1d5db;
   --accent: #1d6fe0;
@@ -74,6 +75,8 @@
   --h1-size: 1.75em;
   --h2-size: 1.4em;
   --h3-size: 1.15em;
+  --heading-weight: 600;
+  --strong-weight: 600;
 }
 
 :root[data-theme="charcoal"] {
@@ -86,6 +89,7 @@
   --toolbar-icon: #8c99a8;
   --muted: #8c99a8;
   --heading: #f5f7fc;
+  --strong: #e8edf5;
   --border: #3b4252;
   --divider: #3b4252;
   --accent: #2e7aeb;
@@ -121,6 +125,7 @@
   --toolbar-icon: #33424a;
   --muted: #657b83;
   --heading: #073642;
+  --strong: #586e75;
   --border: #d4cbb4;
   --accent: #268bd2;
   --code: #eee8d5;
@@ -155,6 +160,7 @@
   --toolbar-icon: #6a5c4d;
   --muted: #6a5c4d;
   --heading: #2d2118;
+  --strong: #42372c;
   --border: #e6dec2;
   --divider: #e6dec2;
   --accent: #b0623e;
@@ -191,6 +197,7 @@
   --toolbar-icon: #839496;
   --muted: #839496;
   --heading: #eee8d5;
+  --strong: #93a1a1;
   --border: #0e4753;
   --divider: #0e4753;
   --accent: #b58900;
@@ -226,6 +233,7 @@
   --toolbar-icon: #b8b8b8;
   --muted: #b8b8b8;
   --heading: #ffa500;
+  --strong: #f5f5f5;
   --border: #2a2a2a;
   --divider: #2a2a2a;
   --accent: #ffa500;
@@ -254,6 +262,7 @@
   --toolbar-icon: #8c9298;
   --muted: #8c9298;
   --heading: #6eba7f;
+  --strong: #d8dee9;
   --border: #1e252d;
   --divider: #1e252d;
   --accent: #ffd580;
@@ -282,6 +291,7 @@
   --toolbar-icon: #5c584f;
   --muted: #5c584f;
   --heading: #1a1814;
+  --strong: #2c2a26;
   --border: #e0d8be;
   --divider: #e0d8be;
   --accent: #b0623e;
@@ -299,6 +309,8 @@
   --code-operator: #2c2a26;
   --body-font-family: "OpenDyslexic", "Dyslexie", ui-sans-serif, system-ui, sans-serif;
   --base-font-size: 15px;
+  --heading-weight: 400;
+  --strong-weight: 700;
 }
 
 :root[data-theme="standard-erin-dark"] {
@@ -312,6 +324,7 @@
   --toolbar-icon: #b0a88f;
   --muted: #b0a88f;
   --heading: #f0e8cf;
+  --strong: #e5dcc5;
   --border: #2e3a50;
   --divider: #2e3a50;
   --accent: #c99a4a;
@@ -329,6 +342,8 @@
   --code-operator: #e5dcc5;
   --body-font-family: "OpenDyslexic", "Dyslexie", ui-sans-serif, system-ui, sans-serif;
   --base-font-size: 15px;
+  --heading-weight: 400;
+  --strong-weight: 700;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -343,6 +358,7 @@
     --toolbar-icon: #8c9298;
     --muted: #8c9298;
     --heading: #6eba7f;
+    --strong: #d8dee9;
     --border: #1e252d;
     --divider: #1e252d;
     --accent: #ffd580;
@@ -647,6 +663,7 @@ button {
 .markdown-body h1,
 .markdown-body h2,
 .markdown-body h3 {
+  font-weight: var(--heading-weight);
   line-height: 1.2;
 }
 
@@ -671,6 +688,11 @@ button {
 
 .markdown-body a {
   color: var(--accent);
+}
+
+.markdown-body strong {
+  color: var(--strong);
+  font-weight: var(--strong-weight);
 }
 
 .markdown-body .mdv-find-match-block {

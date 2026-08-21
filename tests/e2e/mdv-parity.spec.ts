@@ -686,6 +686,29 @@ test("theme menu exposes the full Swift mdv catalog", async ({ page }) => {
   }
 });
 
+test("theme typography follows Swift smart punctuation and weight rules", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/prose.md")],
+  );
+
+  await expect(page.getByTestId("markdown-body")).toContainText("“nice serif”");
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Phosphor" }).click();
+  await expect(page.getByTestId("markdown-body")).toContainText('"nice serif"');
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Standard Erin Light" }).click();
+  await expect(page.getByTestId("markdown-body").locator("h1")).toHaveCSS("font-weight", "400");
+  await expect(page.getByTestId("markdown-body").locator("strong").first()).toHaveCSS(
+    "font-weight",
+    "700",
+  );
+  await expect(page.getByTestId("markdown-body")).toContainText('"nice serif"');
+});
+
 test("code syntax palettes follow the active mdv theme", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
