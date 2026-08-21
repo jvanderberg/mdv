@@ -607,7 +607,8 @@ Goal: bring over the “awesome code blocks” work.
 - Done: Implement wrap toggle.
 - Done: Implement copy-without-prompts for shell blocks.
 - Done: Implement right-click/menu equivalent.
-- Add per-theme code palettes.
+- Done: Add per-theme code palettes for the currently implemented Tauri
+  themes (`paper`, `charcoal`, `solarized`) using Swift CodePalette values.
 - Reduce bundle cost by loading language highlighters selectively.
 
 Tests:
@@ -615,6 +616,8 @@ Tests:
 - Done: unit tests for language aliasing and shell prompt stripping.
 - Done: Playwright tests for label, copy, wrap, shell copy, and fixture
   language coverage.
+- Done: Playwright coverage for code token palette changes across implemented
+  themes.
 - Remaining: explicit long-line scroll visual coverage.
 
 ### Phase 7 — Themes, Typography, Fonts, Zoom

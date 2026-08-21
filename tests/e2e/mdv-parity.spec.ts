@@ -663,6 +663,28 @@ test("themes and zoom alter durable viewer state without layout collapse", async
   await expect(page.getByTestId("markdown-body")).toBeVisible();
 });
 
+test("code syntax palettes follow the active mdv theme", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/code.md")],
+  );
+
+  await expect(page.locator(".hljs-keyword").first()).toHaveCSS("color", "rgb(207, 34, 46)");
+  await expect(page.locator(".hljs-comment").first()).toHaveCSS("color", "rgb(110, 119, 129)");
+  await expect(page.locator(".hljs-comment").first()).toHaveCSS("font-style", "italic");
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Charcoal" }).click();
+  await expect(page.locator(".hljs-keyword").first()).toHaveCSS("color", "rgb(255, 123, 114)");
+  await expect(page.locator(".hljs-string").first()).toHaveCSS("color", "rgb(165, 214, 255)");
+
+  await page.getByRole("button", { name: "Theme" }).click();
+  await page.getByRole("menuitemradio", { name: "Solarium Daylight" }).click();
+  await expect(page.locator(".hljs-keyword").first()).toHaveCSS("color", "rgb(133, 153, 0)");
+  await expect(page.locator(".hljs-number").first()).toHaveCSS("color", "rgb(211, 54, 130)");
+});
+
 test("native menu commands drive mdv workflows", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

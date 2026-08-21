@@ -17,6 +17,17 @@
   --divider: #d1d5db;
   --accent: #1d6fe0;
   --code: #f6f8fa;
+  --code-plain: #1f2328;
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-number: #0550ae;
+  --code-comment: #6e7781;
+  --code-type: #953800;
+  --code-function: #8250df;
+  --code-attribute: #116329;
+  --code-variable: #1f2328;
+  --code-constant: #0550ae;
+  --code-operator: #cf222e;
 }
 
 :root[data-theme="charcoal"] {
@@ -31,6 +42,17 @@
   --border: #444c56;
   --accent: #6cb6ff;
   --code: #2d333b;
+  --code-plain: #c9d1d9;
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-comment: #8b949e;
+  --code-type: #ffa657;
+  --code-function: #d2a8ff;
+  --code-attribute: #7ee787;
+  --code-variable: #c9d1d9;
+  --code-constant: #79c0ff;
+  --code-operator: #ff7b72;
 }
 
 :root[data-theme="solarized"] {
@@ -45,6 +67,17 @@
   --border: #d4cbb4;
   --accent: #268bd2;
   --code: #eee8d5;
+  --code-plain: #586e75;
+  --code-keyword: #859900;
+  --code-string: #2aa198;
+  --code-number: #d33682;
+  --code-comment: #93a1a1;
+  --code-type: #b58900;
+  --code-function: #268bd2;
+  --code-attribute: #cb4b16;
+  --code-variable: #586e75;
+  --code-constant: #6c71c4;
+  --code-operator: #859900;
 }
 
 body {
@@ -538,8 +571,67 @@ button {
   width: max-content;
   min-width: 100%;
   background: transparent;
+  color: var(--code-plain);
   font-size: calc(16px * var(--zoom) * 0.85);
   line-height: 1.45;
+}
+
+.markdown-body .hljs {
+  background: transparent;
+  color: var(--code-plain);
+}
+
+.markdown-body .hljs-keyword {
+  color: var(--code-keyword);
+}
+
+.markdown-body .hljs-string,
+.markdown-body .hljs-regexp {
+  color: var(--code-string);
+}
+
+.markdown-body .hljs-number {
+  color: var(--code-number);
+}
+
+.markdown-body .hljs-comment {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.markdown-body .hljs-type,
+.markdown-body .hljs-class {
+  color: var(--code-type);
+}
+
+.markdown-body .hljs-title,
+.markdown-body .hljs-title.function_,
+.markdown-body .hljs-function .hljs-title,
+.markdown-body .hljs-built_in {
+  color: var(--code-function);
+}
+
+.markdown-body .hljs-attr,
+.markdown-body .hljs-attribute,
+.markdown-body .hljs-name,
+.markdown-body .hljs-tag {
+  color: var(--code-attribute);
+}
+
+.markdown-body .hljs-variable,
+.markdown-body .hljs-template-variable,
+.markdown-body .hljs-params {
+  color: var(--code-variable);
+}
+
+.markdown-body .hljs-literal,
+.markdown-body .hljs-meta {
+  color: var(--code-constant);
+}
+
+.markdown-body .hljs-operator,
+.markdown-body .hljs-punctuation {
+  color: var(--code-operator);
 }
 
 .mdv-code-wrap .code-block {
