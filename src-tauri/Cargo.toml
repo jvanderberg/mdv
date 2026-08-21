@@ -1,6 +1,6 @@
 [package]
 name = "mdvx"
-version = "0.1.1"
+version = "0.1.2"
 description = "A desktop Markdown viewer"
 authors = ["Josh Vanderberg"]
 edition = "2021"
@@ -32,6 +32,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [[bin]]
 name = "mdvx"
 path = "src/main.rs"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
 
 [build-dependencies]
 tauri-build = { version = "2.4", features = [] }

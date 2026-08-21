@@ -33,6 +33,13 @@ describe("tauri bundle configuration", () => {
     expect(config.bundle.resources).toEqual(["resources/Help.md"]);
   });
 
+  it("enables Tauri's production asset protocol for Cargo installations", () => {
+    const manifest = readFileSync(resolve(process.cwd(), "src-tauri/Cargo.toml"), "utf8");
+
+    expect(manifest).toContain('default = ["custom-protocol"]');
+    expect(manifest).toContain('custom-protocol = ["tauri/custom-protocol"]');
+  });
+
   it("registers mdv document associations", () => {
     expect(config.bundle.fileAssociations).toEqual([
       {

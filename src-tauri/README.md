@@ -11,4 +11,6 @@ Building a Tauri application requires the platform packages documented in the [T
 
 The Cargo package installs a standalone application binary. Native installers, desktop file associations, and release bundles are available from the project repository.
 
+On macOS, startup diagnostics are written to `~/Library/Logs/mdvx-startup.log`.
+
 Licensed under the MIT License.

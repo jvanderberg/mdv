@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     env,
     ffi::OsString,
-    fs,
+    fs::{self, OpenOptions},
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
     sync::Mutex,
@@ -152,6 +153,14 @@ impl Store {
         }
         let conn = Connection::open_with_flags(path, STORE_OPEN_FLAGS)?;
         let store = Self { conn };
+        store.migrate()?;
+        Ok(store)
+    }
+
+    fn open_in_memory() -> MdvResult<Self> {
+        let store = Self {
+            conn: Connection::open_in_memory()?,
+        };
         store.migrate()?;
         Ok(store)
     }
@@ -724,6 +733,84 @@ fn app_db_path(app: &AppHandle) -> MdvResult<PathBuf> {
     Ok(dir.join("mdv-tauri.db"))
 }
 
+fn startup_log_path() -> PathBuf {
+    #[cfg(target_os = "macos")]
+    if let Some(home) = env::var_os("HOME").map(PathBuf::from) {
+        return home.join("Library").join("Logs").join("mdvx-startup.log");
+    }
+    env::temp_dir().join("mdvx-startup.log")
+}
+
+fn log_startup(message: impl AsRef<str>) {
+    let path = startup_log_path();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        let _ = writeln!(file, "[{timestamp}] {}", message.as_ref());
+    }
+}
+
+fn install_panic_diagnostics() {
+    let previous_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log_startup(format!("panic: {info}"));
+        previous_hook(info);
+    }));
+}
+
+fn open_store_with_recovery(path: &Path) -> Store {
+    match Store::open(path) {
+        Ok(store) => store,
+        Err(error) => {
+            log_startup(format!(
+                "persistent store failed at {}: {error}",
+                path.display()
+            ));
+            quarantine_store_files(path);
+            match Store::open(path) {
+                Ok(store) => {
+                    log_startup("persistent store recreated after quarantine");
+                    store
+                }
+                Err(retry_error) => {
+                    log_startup(format!(
+                        "persistent store retry failed: {retry_error}; using in-memory store"
+                    ));
+                    Store::open_in_memory()
+                        .expect("in-memory SQLite store could not be initialized")
+                }
+            }
+        }
+    }
+}
+
+fn quarantine_store_files(path: &Path) {
+    let suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    for candidate in [
+        path.to_path_buf(),
+        PathBuf::from(format!("{}-wal", path.display())),
+        PathBuf::from(format!("{}-shm", path.display())),
+    ] {
+        if candidate.exists() {
+            let quarantine = PathBuf::from(format!("{}.failed-{suffix}", candidate.display()));
+            if let Err(error) = fs::rename(&candidate, &quarantine) {
+                log_startup(format!(
+                    "could not quarantine {}: {error}",
+                    candidate.display()
+                ));
+            }
+        }
+    }
+}
+
 #[tauri::command]
 fn update_menu_state(app: AppHandle, state: NativeMenuState) -> MdvResult<()> {
     let Some(menu) = app.menu() else {
@@ -1234,7 +1321,15 @@ fn file_signature_for_path(path: &Path) -> MdvResult<FileSignature> {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    install_panic_diagnostics();
+    log_startup(format!(
+        "mdvx {} process start on {} {}",
+        env!("CARGO_PKG_VERSION"),
+        env::consts::OS,
+        env::consts::ARCH
+    ));
+
+    let builder = tauri::Builder::default()
         .menu(mdv_menu)
         .on_menu_event(|app, event| {
             let command = event.id().as_ref();
@@ -1249,16 +1344,34 @@ pub fn run() {
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .on_page_load(|_webview, payload| {
+            log_startup(format!(
+                "page load {:?}: {}",
+                payload.event(),
+                payload.url()
+            ));
+        })
         .setup(|app| {
-            let db_path = app_db_path(app.handle())?;
-            let store = Store::open(db_path)?;
+            log_startup("setup started");
+            let store = match app_db_path(app.handle()) {
+                Ok(db_path) => open_store_with_recovery(&db_path),
+                Err(error) => {
+                    log_startup(format!(
+                        "application data path failed: {error}; using in-memory store"
+                    ));
+                    Store::open_in_memory()?
+                }
+            };
             app.manage(AppState {
                 db: Mutex::new(store),
                 pending_open_paths: Mutex::new(supported_open_args(env::args_os().skip(1))),
             });
             if let Some(window) = app.get_webview_window("main") {
-                window.set_theme(Some(Theme::Light))?;
+                if let Err(error) = window.set_theme(Some(Theme::Light)) {
+                    log_startup(format!("could not set initial window theme: {error}"));
+                }
             }
+            log_startup("setup completed");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1279,7 +1392,17 @@ pub fn run() {
             take_pending_open_paths,
             open_in_editor,
             update_menu_state
-        ])
+        ]);
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    let builder = builder.on_web_content_process_terminate(|webview| {
+        log_startup(format!(
+            "web content process terminated for {}",
+            webview.label()
+        ));
+    });
+
+    builder
         .build(tauri::generate_context!())
         .expect("error while building mdv")
         .run(|_app, _event| {
@@ -1305,6 +1428,25 @@ mod tests {
         assert!(STORE_OPEN_FLAGS.contains(OpenFlags::SQLITE_OPEN_FULL_MUTEX));
         assert!(STORE_OPEN_FLAGS.contains(OpenFlags::SQLITE_OPEN_READ_WRITE));
         assert!(STORE_OPEN_FLAGS.contains(OpenFlags::SQLITE_OPEN_CREATE));
+    }
+
+    #[test]
+    fn corrupt_persistent_store_is_quarantined_and_recreated() {
+        let temp = tempfile::tempdir().unwrap();
+        let db = temp.path().join("mdv.db");
+        fs::write(&db, "not a sqlite database").unwrap();
+
+        let store = open_store_with_recovery(&db);
+
+        assert!(store.list_history().unwrap().is_empty());
+        assert!(db.is_file());
+        assert!(fs::read_dir(temp.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|entry| entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("mdv.db.failed-")));
     }
 
     #[test]
