@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { SearchHit } from "./types";
+import type { Bookmark, SearchHit } from "./types";
 
 describe("store persistence helpers", () => {
   beforeEach(() => {
@@ -45,6 +45,49 @@ describe("store persistence helpers", () => {
     expect(useAppStore.getState().globalHits).toEqual([
       { path: "/fast.md", filename: "fast.md", snippet: "\u0002fast\u0003" },
     ]);
+  });
+
+  it("resolves bookmark jumps by fingerprint after document edits", async () => {
+    const { bookmarkFingerprint, splitBlocks } = await import("./markdown");
+    const { useAppStore } = await import("./store");
+    const originalBlocks = splitBlocks("# Title\n\nAnchor paragraph.\n\nTail.");
+    const bookmark: Bookmark = {
+      id: 7,
+      path: "/doc.md",
+      title: "Anchor",
+      sort_order: 0,
+      created_at: 1,
+      block_index: 1,
+      block_fingerprint: bookmarkFingerprint(originalBlocks[1]),
+      file_exists: true,
+    };
+    useAppStore.setState({
+      bookmarks: [bookmark],
+      api: {
+        ...useAppStore.getState().api,
+        async loadMarkdown() {
+          return {
+            path: "/doc.md",
+            filename: "doc.md",
+            content: "# Title\n\nInserted paragraph.\n\nAnchor paragraph.\n\nTail.",
+          };
+        },
+        async loadScrollPosition() {
+          return null;
+        },
+        async listHistory() {
+          return [];
+        },
+        async listBookmarks() {
+          return [bookmark];
+        },
+      },
+    });
+
+    await useAppStore.getState().openBookmark(7);
+
+    expect(useAppStore.getState().pendingBlockIndex).toBe(2);
+    expect(useAppStore.getState().activeBookmarkId).toBe(7);
   });
 });
 

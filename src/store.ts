@@ -375,7 +375,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const bookmark = get().bookmarks.find((entry) => entry.id === id);
     if (!bookmark) return;
     await get().openDocument(bookmark.path);
-    set({ activeBookmarkId: bookmark.id, pendingBlockIndex: bookmark.block_index });
+    set({
+      activeBookmarkId: bookmark.id,
+      pendingBlockIndex: resolveBookmarkAnchor(
+        get().blocks,
+        bookmark.block_index,
+        bookmark.block_fingerprint,
+      ),
+    });
   },
 
   async openBookmarkSlot(slot) {
