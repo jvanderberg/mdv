@@ -632,8 +632,8 @@ Goal: bring over the “awesome code blocks” work.
 - Done: Implement wrap toggle.
 - Done: Implement copy-without-prompts for shell blocks.
 - Done: Implement right-click/menu equivalent.
-- Done: Add per-theme code palettes for the currently implemented Tauri
-  themes (`paper`, `charcoal`, `solarized`) using Swift CodePalette values.
+- Done: Add per-theme code palettes for the full Swift mdv theme catalog using
+  Swift CodePalette values.
 - Done: Reduce bundle cost by loading language highlighters selectively for
   supported mdv languages.
 
@@ -658,7 +658,7 @@ Goal: match the reading experience.
 - Done: Add smart typography toggle and theme opt-outs.
 - Done: Bundle/load web font equivalents for Alegreya, Besley, OpenDyslexic.
 - Done: Implement Standard Erin font fallback where possible.
-- Tune markdown CSS per theme:
+- Done: Tune markdown CSS per theme:
   - Done: Measure.
   - Done: Heading scale.
   - Done: Line spacing.
