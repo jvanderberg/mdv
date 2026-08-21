@@ -92,31 +92,25 @@ function TopBar() {
   const chooseAndOpenDocument = useAppStore((state) => state.chooseAndOpenDocument);
   const cycleTheme = useAppStore((state) => state.cycleTheme);
   const document = useAppStore((state) => state.document);
-  const findQuery = useAppStore((state) => state.findQuery);
   const navigateBack = useAppStore((state) => state.navigateBack);
   const navigateForward = useAppStore((state) => state.navigateForward);
-  const setFindQuery = useAppStore((state) => state.setFindQuery);
   const addBookmarkAtCurrentSpot = useAppStore((state) => state.addBookmarkAtCurrentSpot);
   const toggleInspector = useAppStore((state) => state.toggleInspector);
   const zoomIn = useAppStore((state) => state.zoomIn);
   const zoomOut = useAppStore((state) => state.zoomOut);
 
   return (
-    <header className="grid min-h-12 min-w-0 grid-cols-1 items-center gap-2 border-[var(--border)] border-b bg-[var(--titlebar)] px-4 py-2 md:grid-cols-[auto_minmax(120px,1fr)_auto] md:gap-4 md:py-0">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2" aria-hidden="true">
-          <span className="h-3.5 w-3.5 rounded-full bg-[#d7d7d7]" />
-          <span className="h-3.5 w-3.5 rounded-full bg-[#d7d7d7]" />
-          <span className="h-3.5 w-3.5 rounded-full bg-[#d7d7d7]" />
-        </div>
-        <div className="min-w-0">
-          <div className="truncate font-bold text-[#777] text-base">
-            {document?.filename ?? "mdv"}
-          </div>
+    <header className="grid h-12 min-w-0 grid-cols-[minmax(110px,1fr)_auto] items-center overflow-hidden border-[var(--border)] border-b bg-[var(--titlebar)] pr-3 pl-5">
+      <div className="min-w-0">
+        <div className="truncate font-bold text-[var(--title-text)] text-base">
+          {document?.filename ?? "mdv"}
         </div>
       </div>
 
-      <div className="grid w-full min-w-0 grid-cols-[auto_auto_minmax(120px,1fr)] items-center gap-1.5 xl:mx-auto xl:max-w-[460px]">
+      <div
+        className="flex min-w-0 items-center justify-end gap-0.5 text-[var(--toolbar-icon)] md:gap-4"
+        data-testid="app-toolbar"
+      >
         <button
           className="mdv-icon-button"
           type="button"
@@ -135,18 +129,6 @@ function TopBar() {
         >
           &gt;
         </button>
-        <input
-          className="mdv-input"
-          placeholder="Find"
-          value={findQuery}
-          onChange={(event) => setFindQuery(event.currentTarget.value)}
-        />
-      </div>
-
-      <div
-        className="flex min-w-0 flex-wrap items-center justify-start gap-2 md:justify-end md:gap-3"
-        data-testid="app-toolbar"
-      >
         <button
           className="mdv-icon-button text-2xl"
           type="button"
@@ -200,6 +182,7 @@ function TopBar() {
 }
 
 function Sidebar() {
+  const [searchVisible, setSearchVisible] = useState(false);
   const searchHistory = useAppStore((state) => state.searchHistory);
   const clearHistory = useAppStore((state) => state.clearHistory);
   const globalHits = useAppStore((state) => state.globalHits);
@@ -210,26 +193,38 @@ function Sidebar() {
       aria-label="History"
       className="max-h-[260px] overflow-auto border-[var(--border)] border-b bg-[var(--panel)] lg:max-h-none lg:border-r lg:border-b-0"
     >
-      <div className="grid gap-5 px-3 pt-8 pb-3 text-[var(--muted)] text-xs uppercase">
+      <div className="grid gap-2 px-3 pt-8 pb-2 text-[var(--muted)] text-xs uppercase">
         <div className="flex items-center justify-between gap-2">
           <label htmlFor="history-search">History</label>
           <button
-            className="rounded px-1.5 py-0.5 text-[10px] normal-case hover:bg-[var(--panel-strong)]"
+            className="mdv-pane-icon-button"
             type="button"
-            onClick={() => void clearHistory()}
+            aria-label="Search history"
+            onClick={() => setSearchVisible((visible) => !visible)}
           >
-            Clear
+            ⌕
           </button>
         </div>
-        <input
-          id="history-search"
-          className="mdv-input sr-only"
-          placeholder="Search history"
-          onChange={(event) => void searchHistory(event.currentTarget.value)}
-        />
+        {searchVisible ? (
+          <div className="grid gap-1.5">
+            <input
+              id="history-search"
+              className="mdv-input mdv-pane-input"
+              placeholder="Search history"
+              onChange={(event) => void searchHistory(event.currentTarget.value)}
+            />
+            <button
+              className="justify-self-start rounded px-1 py-0.5 text-[10px] normal-case hover:bg-[var(--panel-strong)]"
+              type="button"
+              onClick={() => void clearHistory()}
+            >
+              Clear
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      <div className="grid gap-0.5 p-2" data-testid="history-list">
+      <div className="grid gap-0.5 p-2 pt-1" data-testid="history-list">
         {globalHits.length > 0 ? (
           <SearchHits hits={globalHits} />
         ) : (
@@ -241,9 +236,12 @@ function Sidebar() {
 }
 
 function Viewer() {
+  const [findVisible, setFindVisible] = useState(false);
   const scrollRef = useRef<HTMLElement | null>(null);
+  const ignoreScrollUntilRef = useRef(0);
   const saveTimerRef = useRef<number | undefined>(undefined);
   const document = useAppStore((state) => state.document);
+  const findQuery = useAppStore((state) => state.findQuery);
   const findMatches = useAppStore((state) => state.findMatches);
   const currentFragment = useAppStore((state) => state.currentFragment);
   const html = useAppStore((state) => state.html);
@@ -252,6 +250,7 @@ function Viewer() {
   const api = useAppStore((state) => state.api);
   const navigateToHref = useAppStore((state) => state.navigateToHref);
   const saveScrollPosition = useAppStore((state) => state.saveScrollPosition);
+  const setFindQuery = useAppStore((state) => state.setFindQuery);
   const handleMarkdownLink = (target: EventTarget | null): boolean => {
     const anchor = (target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
     if (!anchor) return false;
@@ -263,6 +262,7 @@ function Viewer() {
     if (!document || pendingScrollTop === null) return;
     const scrollTop = consumePendingScrollTop();
     if (scrollTop === null) return;
+    ignoreScrollUntilRef.current = Date.now() + 250;
     window.requestAnimationFrame(() => {
       if (scrollRef.current) scrollRef.current.scrollTop = scrollTop;
     });
@@ -305,9 +305,42 @@ function Viewer() {
     [],
   );
 
-  const handleScroll = (event: React.UIEvent<HTMLElement>) => {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        !event.metaKey ||
+        event.shiftKey ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.key.toLowerCase() !== "f"
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setFindVisible(true);
+      window.requestAnimationFrame(() => {
+        scrollRef.current
+          ?.querySelector<HTMLInputElement>("[data-testid='document-find']")
+          ?.focus();
+      });
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const onScroll = () => {
+      scheduleScrollSave(element.scrollTop);
+    };
+    element.addEventListener("scroll", onScroll);
+    return () => element.removeEventListener("scroll", onScroll);
+  });
+
+  const scheduleScrollSave = (scrollTop: number) => {
+    if (Date.now() < ignoreScrollUntilRef.current) return;
     if (saveTimerRef.current !== undefined) window.clearTimeout(saveTimerRef.current);
-    const scrollTop = event.currentTarget.scrollTop;
     saveTimerRef.current = window.setTimeout(() => {
       void saveScrollPosition(scrollTop);
     }, 80);
@@ -318,7 +351,6 @@ function Viewer() {
       ref={scrollRef}
       className="min-w-0 overflow-auto bg-[var(--bg)]"
       data-testid="viewer-scroll"
-      onScroll={handleScroll}
     >
       <article
         className="markdown-body relative mx-auto max-w-[760px] px-6 py-10 md:px-11 md:py-12"
@@ -332,6 +364,21 @@ function Viewer() {
           if (handleMarkdownLink(event.target)) event.preventDefault();
         }}
       >
+        {findVisible ? (
+          <div className="sticky top-3 z-10 float-right mb-2 ml-4 flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 py-1 text-[var(--muted)] text-xs shadow-sm">
+            <input
+              className="mdv-find-input"
+              data-testid="document-find"
+              placeholder="Find"
+              value={findQuery}
+              onChange={(event) => setFindQuery(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setFindVisible(false);
+              }}
+            />
+            {findMatches.length > 0 ? <span>{findMatches.length}</span> : null}
+          </div>
+        ) : null}
         {document ? (
           <>
             {findMatches.length > 0 ? (

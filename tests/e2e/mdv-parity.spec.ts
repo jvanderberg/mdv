@@ -196,9 +196,11 @@ test("history search, document find, and bookmarks are automatic workflows", asy
     [abs("test-docs/README.md"), abs("test-docs/syntax.md")],
   );
 
+  await page.getByRole("button", { name: "Search history" }).click();
   await page.getByPlaceholder("Search history").fill("checklist");
   await expect(page.getByTestId("history-list")).toContainText("README.md");
 
+  await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
   await expect(page.getByText("block matches")).toBeVisible();
 
@@ -227,6 +229,7 @@ test("history and bookmark deletion workflows update persisted lists", async ({ 
   await page.getByLabel("Remove bookmark Markdown Syntax Tour").click();
   await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks.");
 
+  await page.getByRole("button", { name: "Search history" }).click();
   await page.getByRole("button", { name: "Clear" }).click();
   await expect(page.getByTestId("history-list")).toContainText("No history yet.");
 });
@@ -242,8 +245,10 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
   );
 
   await page.getByLabel("Reveal README.md in Finder").click();
+  await page.getByRole("button", { name: "Search history" }).click();
   await page.getByPlaceholder("Search history").fill("checklist");
   await page.getByLabel("Reveal README.md in Finder").click();
+  await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
   await page.getByRole("button", { name: "Bookmark" }).click();
   await ensureInspector(page);
@@ -286,11 +291,15 @@ test("restores the saved scroll position when reopening a document", async ({ pa
   );
 
   const viewer = page.getByTestId("viewer-scroll");
-  await viewer.evaluate((element) => {
-    element.scrollTop = 820;
-    element.dispatchEvent(new Event("scroll", { bubbles: true }));
-  });
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(300);
+  const targetScroll = await viewer.evaluate((element) =>
+    Math.max(0, Math.min(820, element.scrollHeight - element.clientHeight - 20)),
+  );
+  expect(targetScroll).toBeGreaterThan(120);
+  await viewer.evaluate((element, scrollTop) => {
+    element.scrollTo(0, scrollTop);
+  }, targetScroll);
+  await page.waitForTimeout(250);
 
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
@@ -304,7 +313,7 @@ test("restores the saved scroll position when reopening a document", async ({ pa
 
   await expect
     .poll(async () => viewer.evaluate((element) => element.scrollTop))
-    .toBeGreaterThan(700);
+    .toBeGreaterThan(targetScroll - 40);
 });
 
 test("visual shell stays readable without clipped chrome", async ({ page }, testInfo) => {
