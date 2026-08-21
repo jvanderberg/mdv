@@ -23,6 +23,7 @@ import {
 import { CSS as DndCss } from "@dnd-kit/utilities";
 import {
   type CSSProperties,
+  type ClipboardEvent as ReactClipboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -836,10 +837,13 @@ function shouldRouteFindToHistorySearch() {
 function Viewer() {
   const [findVisible, setFindVisible] = useState(false);
   const [codeMenu, setCodeMenu] = useState<{ blockId: string; x: number; y: number } | null>(null);
+  const [copyMenu, setCopyMenu] = useState<(CopyPayload & { x: number; y: number }) | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const markdownRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLElement | null>(null);
   const ignoreScrollUntilRef = useRef(0);
   const saveTimerRef = useRef<number | undefined>(undefined);
+  const copyNoticeTimerRef = useRef<number | undefined>(undefined);
   const document = useAppStore((state) => state.document);
   const findQuery = useAppStore((state) => state.findQuery);
   const findMatches = useAppStore((state) => state.findMatches);
@@ -887,6 +891,11 @@ function Viewer() {
     }
     return false;
   };
+  const showCopyNotice = (message: string) => {
+    if (copyNoticeTimerRef.current !== undefined) window.clearTimeout(copyNoticeTimerRef.current);
+    setCopyNotice(message);
+    copyNoticeTimerRef.current = window.setTimeout(() => setCopyNotice(null), 1100);
+  };
   const handleHeadingCopy = (target: EventTarget | null): boolean => {
     const heading = (target as HTMLElement | null)?.closest<HTMLElement>(
       ".markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6",
@@ -899,9 +908,39 @@ function Viewer() {
     const endIndex = nextPeer?.blockIndex ?? blocks.length;
     const markdown = blocks.slice(blockIndex, endIndex).join("\n\n");
     if (!markdown.trim()) return false;
-    void navigator.clipboard.writeText(markdown).catch(() => {});
-    flashCopiedSection(blockIndex, endIndex);
+    void navigator.clipboard.writeText(markdown).then(
+      () => {
+        showCopyNotice("Markdown copied");
+        window.requestAnimationFrame(() => flashCopiedSection(blockIndex, endIndex));
+      },
+      () => {},
+    );
     return true;
+  };
+  const handleRichCopy = (event: ReactClipboardEvent<HTMLElement>) => {
+    const payload = copyPayloadForSelection(markdownRef.current, blocks);
+    if (!payload) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/html", payload.html);
+    event.clipboardData.setData("text/plain", payload.markdown);
+    showCopyNotice("Rich copy ready");
+  };
+  const handleMarkdownContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement | null;
+    const codeBlock = target?.closest<HTMLElement>(".mdv-code-block");
+    if (codeBlock?.dataset.codeBlockId) {
+      event.preventDefault();
+      setCopyMenu(null);
+      setCodeMenu({ blockId: codeBlock.dataset.codeBlockId, x: event.clientX, y: event.clientY });
+      return;
+    }
+    const payload =
+      copyPayloadForSelection(markdownRef.current, blocks) ??
+      copyPayloadForBlock(target?.closest<HTMLElement>("[data-mdv-block-index]"), blocks);
+    if (!payload) return;
+    event.preventDefault();
+    setCodeMenu(null);
+    setCopyMenu({ ...payload, x: event.clientX, y: event.clientY });
   };
   const flashCopiedSection = (startIndex: number, endIndex: number) => {
     const root = markdownRef.current;
@@ -918,7 +957,7 @@ function Viewer() {
     for (const block of flashed) block.classList.add("mdv-heading-copy-flash");
     window.setTimeout(() => {
       for (const block of flashed) block.classList.remove("mdv-heading-copy-flash");
-    }, 650);
+    }, 1500);
   };
 
   useEffect(() => {
@@ -1157,6 +1196,7 @@ function Viewer() {
         className="markdown-body relative mx-auto max-w-[760px] px-6 py-10 md:px-11 md:py-12"
         data-current-fragment={currentFragment ?? undefined}
         data-testid="markdown-body"
+        onCopy={handleRichCopy}
         onClick={(event) => {
           if (handleCodeAction(event.target)) {
             event.preventDefault();
@@ -1168,14 +1208,7 @@ function Viewer() {
           }
           if (handleHeadingCopy(event.target)) event.preventDefault();
         }}
-        onContextMenu={(event) => {
-          const block = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-            ".mdv-code-block",
-          );
-          if (!block?.dataset.codeBlockId) return;
-          event.preventDefault();
-          setCodeMenu({ blockId: block.dataset.codeBlockId, x: event.clientX, y: event.clientY });
-        }}
+        onContextMenu={handleMarkdownContextMenu}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;
           if (handleMarkdownLink(event.target)) event.preventDefault();
@@ -1242,6 +1275,14 @@ function Viewer() {
                 onClose={() => setCodeMenu(null)}
               />
             ) : null}
+            {copyMenu ? (
+              <MarkdownCopyMenu
+                menu={copyMenu}
+                onClose={() => setCopyMenu(null)}
+                onCopied={showCopyNotice}
+              />
+            ) : null}
+            {copyNotice ? <CopyHud message={copyNotice} /> : null}
           </>
         ) : (
           <div className="py-[12vh] text-center text-[var(--muted)]">
@@ -1318,6 +1359,142 @@ function CodeBlockMenu({
       ) : null}
     </div>
   );
+}
+
+interface CopyPayload {
+  html: string;
+  markdown: string;
+  text: string;
+  x?: number;
+  y?: number;
+}
+
+function MarkdownCopyMenu({
+  menu,
+  onClose,
+  onCopied,
+}: {
+  menu: CopyPayload & { x: number; y: number };
+  onClose: () => void;
+  onCopied: (message: string) => void;
+}) {
+  useEffect(() => {
+    const close = () => onClose();
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [onClose]);
+
+  const left = Math.min(menu.x, window.innerWidth - 188);
+  const top = Math.max(8, Math.min(menu.y, window.innerHeight - 96));
+
+  return (
+    <div
+      className="fixed z-50 min-w-44 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
+      role="menu"
+      style={{ left, top }}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <MenuButton
+        onClick={() => {
+          void writeRichClipboard(menu).then(() => onCopied("Rich copy ready"));
+          onClose();
+        }}
+      >
+        Copy Rich
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          void navigator.clipboard.writeText(menu.markdown).then(() => onCopied("Markdown copied"));
+          onClose();
+        }}
+      >
+        Copy Markdown
+      </MenuButton>
+    </div>
+  );
+}
+
+function CopyHud({ message }: { message: string }) {
+  return (
+    <div className="mdv-copy-hud" aria-live="polite" data-testid="copy-hud">
+      {message}
+    </div>
+  );
+}
+
+function copyPayloadForSelection(root: HTMLElement | null, blocks: string[]): CopyPayload | null {
+  if (!root) return null;
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+  if (!nodeInside(root, range.commonAncestorContainer)) return null;
+  const html = htmlForRange(range);
+  const text = selection.toString();
+  const markdown = markdownForRange(root, range, blocks) || text;
+  if (!text.trim() && !markdown.trim()) return null;
+  return { html, markdown, text };
+}
+
+function copyPayloadForBlock(
+  block: HTMLElement | null | undefined,
+  blocks: string[],
+): CopyPayload | null {
+  if (!block?.dataset.mdvBlockIndex) return null;
+  const blockIndex = Number(block.dataset.mdvBlockIndex);
+  if (!Number.isFinite(blockIndex)) return null;
+  const markdown = blocks[blockIndex] ?? block.textContent ?? "";
+  const html = sanitizeRichHtml(block.outerHTML);
+  const text = block.textContent ?? markdown;
+  if (!markdown.trim() && !text.trim()) return null;
+  return { html, markdown, text };
+}
+
+function markdownForRange(root: HTMLElement, range: Range, blocks: string[]): string {
+  const selected = Array.from(root.querySelectorAll<HTMLElement>("[data-mdv-block-index]"))
+    .filter((block) => range.intersectsNode(block))
+    .map((block) => Number(block.dataset.mdvBlockIndex))
+    .filter((index) => Number.isFinite(index));
+  if (selected.length === 0) return "";
+  const start = Math.min(...selected);
+  const end = Math.max(...selected);
+  return blocks.slice(start, end + 1).join("\n\n");
+}
+
+function htmlForRange(range: Range): string {
+  const wrapper = document.createElement("div");
+  wrapper.append(range.cloneContents());
+  return sanitizeRichHtml(wrapper.innerHTML);
+}
+
+function sanitizeRichHtml(html: string): string {
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = html;
+  for (const chrome of wrapper.querySelectorAll(".mdv-code-chrome, .mdv-find-current-block")) {
+    chrome.remove();
+  }
+  return wrapper.innerHTML;
+}
+
+function nodeInside(root: HTMLElement, node: Node): boolean {
+  const parent = node.parentNode;
+  const candidate = node.nodeType === Node.ELEMENT_NODE ? node : parent;
+  return root === candidate || (candidate ? root.contains(candidate) : false);
+}
+
+async function writeRichClipboard(payload: CopyPayload) {
+  if ("ClipboardItem" in window && navigator.clipboard.write) {
+    const item = new ClipboardItem({
+      "text/html": new Blob([payload.html], { type: "text/html" }),
+      "text/plain": new Blob([payload.markdown], { type: "text/plain" }),
+    });
+    await navigator.clipboard.write([item]);
+    return;
+  }
+  await navigator.clipboard.writeText(payload.markdown);
 }
 
 function enhanceCodeBlocks(root: HTMLElement) {

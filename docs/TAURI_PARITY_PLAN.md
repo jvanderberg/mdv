@@ -43,6 +43,12 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- Rendered markdown copy now supports both rich and markdown forms. `Cmd+C`
+  inside the markdown body writes `text/html` plus markdown `text/plain` so rich
+  paste targets preserve formatting while plain targets receive source markdown.
+  Right-clicking rendered markdown exposes `Copy Rich` and `Copy Markdown`, and
+  heading-click markdown section copy now shows a transient `Markdown copied`
+  HUD in addition to the section flash. Code block copy remains plain text.
 - The left History pane now keeps its title/search header fixed while only the
   history row list scrolls. The panel itself owns the sidebar height and hides
   overflow; `history-list` owns row scrolling. Covered by the Playwright

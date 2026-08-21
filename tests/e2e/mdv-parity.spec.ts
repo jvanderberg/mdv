@@ -157,6 +157,46 @@ test("clicking a heading copies that source markdown section", async ({ page }) 
   expect(copied).toContain("[syntax.md](syntax.md)");
   expect(copied).not.toContain("## Quick checklist");
   await expect(heading).toHaveClass(/mdv-heading-copy-flash/);
+  await expect(page.getByTestId("copy-hud")).toContainText("Markdown copied");
+});
+
+test("viewer copy supports rich clipboard and explicit markdown copy", async ({ page }) => {
+  await mockClipboard(page);
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  await page.evaluate(() => {
+    const heading = document.querySelector("h2");
+    if (!heading) throw new Error("Expected heading for rich copy test");
+    const range = document.createRange();
+    range.selectNode(heading);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  });
+  await page.evaluate(() => document.execCommand("copy"));
+
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_CLIPBOARD_TYPES__ ?? []))
+    .toContain("text/html");
+  const richClipboard = await page.evaluate(() => ({
+    html: window.__MDV_CLIPBOARD_HTML__ ?? "",
+    plain: window.__MDV_CLIPBOARD__ ?? "",
+  }));
+  expect(richClipboard.html).toContain("<h2");
+  expect(richClipboard.plain).toContain("## What's here");
+  await expect(page.getByTestId("copy-hud")).toContainText("Rich copy ready");
+
+  await page.getByRole("heading", { name: "Quick checklist" }).click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Copy Rich" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Copy Markdown" }).click();
+  await expect
+    .poll(async () => page.evaluate(() => window.__MDV_CLIPBOARD__ ?? ""))
+    .toContain("## Quick checklist");
+  await expect(page.getByTestId("copy-hud")).toContainText("Markdown copied");
 });
 
 test("search pods and bookmarks collapse with animated mdv panels", async ({ page }) => {
@@ -2274,13 +2314,58 @@ async function ensureBookmarksExpanded(page: Page) {
 async function mockClipboard(page: Page) {
   await page.addInitScript(() => {
     window.__MDV_CLIPBOARD__ = "";
+    window.__MDV_CLIPBOARD_HTML__ = "";
+    window.__MDV_CLIPBOARD_TYPES__ = [];
+    Object.defineProperty(window, "ClipboardItem", {
+      configurable: true,
+      value: class MockClipboardItem {
+        items: Record<string, Blob>;
+        types: string[];
+
+        constructor(items: Record<string, Blob>) {
+          this.items = items;
+          this.types = Object.keys(items);
+        }
+
+        async getType(type: string) {
+          return this.items[type];
+        }
+      },
+    });
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: {
+        write: async (
+          items: Array<{ types: string[]; getType: (type: string) => Promise<Blob> }>,
+        ) => {
+          const item = items[0];
+          window.__MDV_CLIPBOARD_TYPES__ = item?.types ?? [];
+          window.__MDV_CLIPBOARD__ = "";
+          window.__MDV_CLIPBOARD_HTML__ = "";
+          for (const type of item?.types ?? []) {
+            const value = await item.getType(type).then((blob) => blob.text());
+            if (type === "text/plain") window.__MDV_CLIPBOARD__ = value;
+            if (type === "text/html") window.__MDV_CLIPBOARD_HTML__ = value;
+          }
+        },
         writeText: async (value: string) => {
           window.__MDV_CLIPBOARD__ = value;
+          window.__MDV_CLIPBOARD_HTML__ = "";
+          window.__MDV_CLIPBOARD_TYPES__ = ["text/plain"];
         },
       },
+    });
+    document.addEventListener("copy", (event) => {
+      const plain = event.clipboardData?.getData("text/plain") ?? "";
+      const html = event.clipboardData?.getData("text/html") ?? "";
+      window.setTimeout(() => {
+        window.__MDV_CLIPBOARD__ = plain;
+        window.__MDV_CLIPBOARD_HTML__ = html;
+        window.__MDV_CLIPBOARD_TYPES__ = [
+          ...(html ? ["text/html"] : []),
+          ...(plain ? ["text/plain"] : []),
+        ];
+      });
     });
   });
 }

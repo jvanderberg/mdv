@@ -71,6 +71,8 @@ declare global {
     __MDV_TEST_API__?: import("./tauri").MdvApi;
     __MDV_CLI_INSTALL_CALLS__?: string[];
     __MDV_CLIPBOARD__?: string;
+    __MDV_CLIPBOARD_HTML__?: string;
+    __MDV_CLIPBOARD_TYPES__?: string[];
     __MDV_BOOKMARKS__?: Bookmark[];
     __MDV_HISTORY__?: HistoryEntry[];
     __MDV_DROP_PATHS__?: (paths: string[]) => Promise<void>;
