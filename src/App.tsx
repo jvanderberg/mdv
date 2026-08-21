@@ -385,21 +385,36 @@ function ThemeMenu({
 function Sidebar() {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchHistory = useAppStore((state) => state.searchHistory);
   const clearHistory = useAppStore((state) => state.clearHistory);
   const globalHits = useAppStore((state) => state.globalHits);
   const history = useAppStore((state) => state.history);
 
+  const closeHistorySearch = () => {
+    setSearchQuery("");
+    void searchHistory("");
+    setSearchVisible(false);
+  };
+
+  const focusHistorySearch = () => {
+    markFocusedPane("sidebar");
+    setSearchVisible(true);
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  };
+
   useEffect(() => {
-    const onFocusHistorySearch = () => setSearchVisible(true);
+    const onFocusHistorySearch = () => focusHistorySearch();
     window.addEventListener("mdv:focus-history-search", onFocusHistorySearch);
     return () => window.removeEventListener("mdv:focus-history-search", onFocusHistorySearch);
-  }, []);
+  });
 
   return (
     <aside
       aria-label="History"
       className="max-h-[260px] overflow-auto border-[var(--border)] border-b bg-[var(--panel)] lg:max-h-none lg:border-r lg:border-b-0"
+      onFocusCapture={() => markFocusedPane("sidebar")}
+      onPointerDown={() => markFocusedPane("sidebar")}
     >
       <div className="grid gap-2 px-3 pt-8 pb-2 text-[var(--muted)] text-xs uppercase">
         <div className="flex items-center justify-between gap-2">
@@ -408,7 +423,10 @@ function Sidebar() {
             className="mdv-pane-icon-button"
             type="button"
             aria-label="Search history"
-            onClick={() => setSearchVisible((visible) => !visible)}
+            onClick={() => {
+              if (searchVisible) closeHistorySearch();
+              else focusHistorySearch();
+            }}
           >
             <Icon name="magnifyingglass" />
           </button>
@@ -417,6 +435,7 @@ function Sidebar() {
           <div className="grid gap-1.5">
             <input
               id="history-search"
+              ref={searchInputRef}
               className="mdv-input mdv-pane-input"
               placeholder="Search history"
               value={searchQuery}
@@ -424,6 +443,9 @@ function Sidebar() {
                 const query = event.currentTarget.value;
                 setSearchQuery(query);
                 void searchHistory(query);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") closeHistorySearch();
               }}
             />
             <button
@@ -446,6 +468,16 @@ function Sidebar() {
       </div>
     </aside>
   );
+}
+
+function markFocusedPane(pane: "sidebar" | "viewer") {
+  document.documentElement.dataset.mdvFocusedPane = pane;
+}
+
+function shouldRouteFindToHistorySearch() {
+  const activeElement = document.activeElement;
+  if (activeElement?.closest?.("aside[aria-label='History']")) return true;
+  return document.documentElement.dataset.mdvFocusedPane === "sidebar";
 }
 
 function Viewer() {
@@ -563,6 +595,10 @@ function Viewer() {
         return;
       }
       event.preventDefault();
+      if (shouldRouteFindToHistorySearch()) {
+        window.dispatchEvent(new CustomEvent("mdv:focus-history-search", { bubbles: false }));
+        return;
+      }
       focusFind();
     };
     const onOpenFind = () => focusFind();
@@ -616,6 +652,8 @@ function Viewer() {
       ref={scrollRef}
       className="min-w-0 overflow-auto bg-[var(--bg)]"
       data-testid="viewer-scroll"
+      onFocusCapture={() => markFocusedPane("viewer")}
+      onPointerDown={() => markFocusedPane("viewer")}
     >
       <article
         className="markdown-body relative mx-auto max-w-[760px] px-6 py-10 md:px-11 md:py-12"

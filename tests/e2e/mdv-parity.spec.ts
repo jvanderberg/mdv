@@ -339,6 +339,28 @@ test("document find highlights blocks and scrolls current match by rendered bloc
     .toBeLessThan(80);
 });
 
+test("find shortcuts route by focused pane and close with Escape", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  await page.getByTestId("viewer-scroll").click();
+  await page.keyboard.press("Meta+F");
+  await expect(page.getByTestId("document-find")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("document-find")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Search history" }).click();
+  await expect(page.getByPlaceholder("Search history")).toBeFocused();
+  await page.keyboard.press("Meta+F");
+  await expect(page.getByPlaceholder("Search history")).toBeFocused();
+  await expect(page.getByTestId("document-find")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByPlaceholder("Search history")).toHaveCount(0);
+});
+
 test("sidebar and bookmark rows preserve Swift visual density", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -510,6 +532,7 @@ test("history, search hits, and bookmarks can reveal their file in Finder", asyn
   await page.getByRole("button", { name: "Search history" }).click();
   await page.getByPlaceholder("Search history").fill("checklist");
   await page.getByLabel("Reveal README.md in Finder").click();
+  await page.getByTestId("viewer-scroll").click();
   await page.keyboard.press("Meta+F");
   await page.getByPlaceholder("Find").fill("blockquote");
   await clickToolbarBookmark(page);
