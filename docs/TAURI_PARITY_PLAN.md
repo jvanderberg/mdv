@@ -505,12 +505,17 @@ Tests:
 
 ### Phase 3 — Find And Global Search Parity
 
+Status: in progress. The find bar, match count, next/previous navigation, and
+rendered-block match/current highlighting are covered. Inline text highlights,
+global snippet highlighting, and stale-query protection remain.
+
 Goal: replace the current simple find with mdv’s usable search behavior.
 
-- In-document find overlay with `Cmd+F`, Escape, next/previous.
+- Done: in-document find overlay with `Cmd+F`, Escape, next/previous.
 - Inline highlights for simple blocks.
-- Block-level highlights for code/table/image blocks.
-- Match counter and current-match state.
+- Done: block-level highlights for matched rendered blocks.
+- Done: match counter and current-match state.
+- Done: next/previous scrolls to the current match by rendered block index.
 - Route `Cmd+F` to history search when sidebar search is focused.
 - Global search UI with highlighted snippets.
 - Open/reveal actions on global hits.
@@ -518,8 +523,10 @@ Goal: replace the current simple find with mdv’s usable search behavior.
 Tests:
 
 - Unit tests for match calculation and highlight eligibility.
-- Playwright tests for keyboard find, next/previous, Escape, global search,
-  snippet highlighting, and stale-query behavior.
+- Done: Playwright tests for keyboard find, next/previous, block highlighting,
+  current-match state, and rendered-block scrolling.
+- Add Playwright coverage for Escape, global search, snippet highlighting, and
+  stale-query behavior.
 
 ### Phase 4 — Scroll Anchors, Bookmarks, Placeholder
 

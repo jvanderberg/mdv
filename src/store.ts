@@ -292,14 +292,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { currentFindMatchIndex, findMatches } = get();
     if (findMatches.length === 0) return;
     const index = (currentFindMatchIndex + 1) % findMatches.length;
-    set({ currentFindMatchIndex: index, pendingScrollTop: findMatches[index] * 220 });
+    set({ currentFindMatchIndex: index, pendingBlockIndex: findMatches[index] });
   },
 
   previousFindMatch() {
     const { currentFindMatchIndex, findMatches } = get();
     if (findMatches.length === 0) return;
     const index = (currentFindMatchIndex - 1 + findMatches.length) % findMatches.length;
-    set({ currentFindMatchIndex: index, pendingScrollTop: findMatches[index] * 220 });
+    set({ currentFindMatchIndex: index, pendingBlockIndex: findMatches[index] });
   },
 
   async searchHistory(query) {

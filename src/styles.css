@@ -349,6 +349,17 @@ button {
   color: var(--accent);
 }
 
+.markdown-body .mdv-find-match-block {
+  border-radius: 5px;
+  background: rgb(255 214 10 / 0.22);
+  box-shadow: 0 0 0 3px rgb(255 214 10 / 0.22);
+}
+
+.markdown-body .mdv-find-current-block {
+  background: rgb(255 214 10 / 0.38);
+  box-shadow: 0 0 0 3px rgb(255 214 10 / 0.38);
+}
+
 .markdown-body table {
   width: 100%;
   border-collapse: collapse;

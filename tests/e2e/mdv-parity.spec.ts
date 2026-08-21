@@ -294,6 +294,38 @@ test("history search, document find, and bookmarks are automatic workflows", asy
   await expect(page.getByTestId("bookmarks")).toContainText("Syntax");
 });
 
+test("document find highlights blocks and scrolls current match by rendered block", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/prose.md")],
+  );
+
+  await page.keyboard.press("Meta+F");
+  await page.getByPlaceholder("Find").fill("palette");
+  await expect(page.locator(".mdv-find-match-block")).toHaveCount(5);
+  const firstCurrent = await page
+    .locator(".mdv-find-current-block")
+    .first()
+    .getAttribute("data-mdv-block-index");
+  expect(firstCurrent).toBe("5");
+
+  await page.getByRole("button", { name: "Next match" }).click();
+  const current = page.locator(".mdv-find-current-block").first();
+  await expect(current).toHaveAttribute("data-mdv-block-index", "9");
+  await expect
+    .poll(async () =>
+      page.getByTestId("viewer-scroll").evaluate((element) => {
+        const block = element.querySelector(".mdv-find-current-block");
+        if (!block) return Number.POSITIVE_INFINITY;
+        return Math.abs(block.getBoundingClientRect().top - element.getBoundingClientRect().top);
+      }),
+    )
+    .toBeLessThan(80);
+});
+
 test("sidebar and bookmark rows preserve Swift visual density", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

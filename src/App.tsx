@@ -3,6 +3,7 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -53,7 +54,7 @@ export function App() {
   const zoomIn = useAppStore((state) => state.zoomIn);
   const zoomOut = useAppStore((state) => state.zoomOut);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.setProperty("--zoom", String(zoom));
   }, [theme, zoom]);
@@ -572,6 +573,21 @@ function Viewer() {
     onScroll();
     return () => element.removeEventListener("scroll", onScroll);
   }, [html, setActiveBlockIndex, setActiveTocHeadingId, setViewerScrollTop]);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    for (const block of element.querySelectorAll("[data-mdv-block-index]")) {
+      block.classList.remove("mdv-find-match-block", "mdv-find-current-block");
+    }
+    if (findMatches.length === 0) return;
+    const currentMatch = findMatches[currentFindMatchIndex];
+    for (const blockIndex of findMatches) {
+      const block = element.querySelector(`[data-mdv-block-index="${blockIndex}"]`);
+      block?.classList.add("mdv-find-match-block");
+      if (blockIndex === currentMatch) block?.classList.add("mdv-find-current-block");
+    }
+  }, [currentFindMatchIndex, findMatches, html, pendingBlockIndex]);
 
   const scheduleScrollSave = (scrollTop: number) => {
     if (Date.now() < ignoreScrollUntilRef.current) return;
