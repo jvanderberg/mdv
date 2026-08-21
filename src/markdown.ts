@@ -95,6 +95,7 @@ export function renderMarkdown(
     const alt = token.content;
     if (isDataImage(src)) {
       token.attrSet("class", classList(token.attrGet("class"), "mdv-image"));
+      token.attrSet("data-image-state", "loaded");
       return defaultImageRender(tokens, idx, options, env, self);
     }
     if (src.startsWith("data:")) {

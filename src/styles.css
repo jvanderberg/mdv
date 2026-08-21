@@ -401,12 +401,39 @@ button {
   display: none;
 }
 
+.mdv-history-panel[aria-hidden="true"] {
+  display: none;
+}
+
+.mdv-history-panel {
+  opacity: 1;
+  transition:
+    opacity 220ms ease-out,
+    transform 220ms ease-out;
+  will-change: opacity, transform;
+}
+
+.mdv-history-panel[aria-hidden="true"] {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
 .mdv-inspector-panel[aria-hidden="true"] {
   display: none;
 }
 
 .mdv-inspector-panel {
   max-height: 260px;
+  opacity: 1;
+  transition:
+    opacity 220ms ease-out,
+    transform 220ms ease-out;
+  will-change: opacity, transform;
+}
+
+.mdv-inspector-panel[aria-hidden="true"] {
+  opacity: 0;
+  transform: translateX(10px);
 }
 
 .mdv-collapsible {
@@ -437,6 +464,10 @@ button {
 
   .mdv-sidebar-divider {
     display: grid;
+  }
+
+  .mdv-history-panel[aria-hidden="true"] {
+    display: block;
   }
 
   .mdv-inspector-panel[aria-hidden="true"] {

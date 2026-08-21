@@ -47,6 +47,18 @@ export interface ResolvedLocalImage {
   exists: boolean;
 }
 
+export interface NativeMenuState {
+  hasDocument: boolean;
+  hasEditor: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  sidebarVisible: boolean;
+  smartTypography: boolean;
+  smartTypographyAllowed: boolean;
+  loadRemoteImages: boolean;
+  bookmarkSlots: Array<{ title: string; enabled: boolean }>;
+}
+
 export interface TocHeading {
   id: string;
   level: number;
@@ -72,5 +84,6 @@ declare global {
     __MDV_REVEAL_CALLS__?: string[];
     __MDV_RESOLVE_BOOKMARK__?: (blocks: string[], index: number, fingerprint: string) => number;
     __MDV_SCROLL_POSITIONS__?: Record<string, ScrollPosition>;
+    __MDV_NATIVE_MENU_STATES__?: NativeMenuState[];
   }
 }

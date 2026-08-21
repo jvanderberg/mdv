@@ -11,9 +11,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { hasShellPrompts, stripShellPrompts } from "./codeBlocks";
 import { canInlineHighlightMarkdownBlock } from "./markdown";
-import { type Theme, themes, useAppStore } from "./store";
+import { smartTypographyAllowed, type Theme, themes, useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
 const loadedRemoteImages = new Set<string>();
@@ -52,7 +53,11 @@ export function App() {
   const api = useAppStore((state) => state.api);
   const currentDocument = useAppStore((state) => state.document);
   const html = useAppStore((state) => state.html);
+  const backStack = useAppStore((state) => state.backStack);
+  const bookmarks = useAppStore((state) => state.bookmarks);
+  const editorAppPath = useAppStore((state) => state.editorAppPath);
   const inspectorVisible = useAppStore((state) => state.inspectorVisible);
+  const loadRemoteImages = useAppStore((state) => state.loadRemoteImages);
   const addBookmarkAtCurrentSpot = useAppStore((state) => state.addBookmarkAtCurrentSpot);
   const chooseAndOpenDocument = useAppStore((state) => state.chooseAndOpenDocument);
   const chooseAndOpenDocumentInNewWindow = useAppStore(
@@ -71,12 +76,14 @@ export function App() {
   const setTheme = useAppStore((state) => state.setTheme);
   const setPlaceholder = useAppStore((state) => state.setPlaceholder);
   const sidebarVisible = useAppStore((state) => state.sidebarVisible);
+  const smartTypography = useAppStore((state) => state.smartTypography);
   const toggleInspector = useAppStore((state) => state.toggleInspector);
   const toggleLoadRemoteImages = useAppStore((state) => state.toggleLoadRemoteImages);
   const toggleSidebar = useAppStore((state) => state.toggleSidebar);
   const toggleSmartTypography = useAppStore((state) => state.toggleSmartTypography);
   const zoomIn = useAppStore((state) => state.zoomIn);
   const zoomOut = useAppStore((state) => state.zoomOut);
+  const forwardStack = useAppStore((state) => state.forwardStack);
   const clampedSidebarWidth = Math.min(400, Math.max(180, sidebarWidth));
 
   const stopSidebarResize = () => {
@@ -158,6 +165,37 @@ export function App() {
   useEffect(() => {
     void refreshLists();
   }, [refreshLists]);
+
+  useEffect(() => {
+    void api.updateNativeMenuState?.({
+      hasDocument: Boolean(currentDocument),
+      hasEditor: Boolean(editorAppPath),
+      canGoBack: backStack.length > 0,
+      canGoForward: forwardStack.length > 0,
+      sidebarVisible,
+      smartTypography,
+      smartTypographyAllowed: smartTypographyAllowed(theme),
+      loadRemoteImages,
+      bookmarkSlots: Array.from({ length: 5 }, (_, index) => {
+        const bookmark = bookmarks[index];
+        return {
+          title: bookmark ? bookmark.title : `Slot ${index + 1} — Empty`,
+          enabled: Boolean(bookmark?.file_exists),
+        };
+      }),
+    });
+  }, [
+    api,
+    backStack.length,
+    bookmarks,
+    currentDocument,
+    editorAppPath,
+    forwardStack.length,
+    loadRemoteImages,
+    sidebarVisible,
+    smartTypography,
+    theme,
+  ]);
 
   useEffect(() => {
     const initialPath = new URLSearchParams(window.location.search).get("mdvOpenPath");
@@ -411,11 +449,11 @@ export function App() {
           {
             "--mdv-shell-columns": sidebarVisible
               ? `${clampedSidebarWidth}px 8px minmax(0,1fr) ${inspectorVisible ? 240 : 0}px`
-              : `6px minmax(0,1fr) ${inspectorVisible ? 240 : 0}px`,
+              : `0px 6px minmax(0,1fr) ${inspectorVisible ? 240 : 0}px`,
           } as CSSProperties
         }
       >
-        {sidebarVisible ? <Sidebar /> : null}
+        <Sidebar visible={sidebarVisible} />
         <SidebarDivider
           hovered={sidebarHandleHovered}
           visible={sidebarVisible}
@@ -651,12 +689,11 @@ function ThemeMenu({ onSelect, selected }: { onSelect: (theme: Theme) => void; s
   );
 }
 
-function Sidebar() {
+function Sidebar({ visible }: { visible: boolean }) {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchHistory = useAppStore((state) => state.searchHistory);
-  const clearHistory = useAppStore((state) => state.clearHistory);
   const globalHits = useAppStore((state) => state.globalHits);
   const history = useAppStore((state) => state.history);
 
@@ -681,7 +718,11 @@ function Sidebar() {
   return (
     <aside
       aria-label="History"
-      className="max-h-[260px] overflow-auto border-[var(--border)] border-b bg-[var(--panel)] lg:max-h-none lg:border-r lg:border-b-0"
+      aria-hidden={!visible}
+      className={`mdv-history-panel max-h-[260px] overflow-auto border-[var(--border)] border-b bg-[var(--panel)] lg:max-h-none lg:border-r lg:border-b-0 ${
+        visible ? "" : "pointer-events-none"
+      }`}
+      data-testid="history-panel"
       onFocusCapture={() => markFocusedPane("sidebar")}
       onPointerDown={() => markFocusedPane("sidebar")}
     >
@@ -726,13 +767,6 @@ function Sidebar() {
                 <Icon name="xmark" />
               </button>
             </label>
-            <button
-              className="justify-self-start rounded px-1 py-0.5 text-[10px] normal-case hover:bg-[var(--panel-strong)]"
-              type="button"
-              onClick={() => void clearHistory()}
-            >
-              Clear
-            </button>
           </div>
         </div>
       </div>
@@ -761,6 +795,7 @@ function shouldRouteFindToHistorySearch() {
 function Viewer() {
   const [findVisible, setFindVisible] = useState(false);
   const [codeMenu, setCodeMenu] = useState<{ blockId: string; x: number; y: number } | null>(null);
+  const markdownRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLElement | null>(null);
   const ignoreScrollUntilRef = useRef(0);
   const saveTimerRef = useRef<number | undefined>(undefined);
@@ -849,40 +884,73 @@ function Viewer() {
     });
   }, [currentFragment, document, html]);
 
-  useEffect(() => {
-    if (!document || !scrollRef.current) return;
-    const images = Array.from(
-      scrollRef.current.querySelectorAll<HTMLImageElement>("img[data-mdv-local-image]"),
-    );
-    for (const image of images) {
-      const src = image.dataset.mdvLocalImage;
-      if (!src) continue;
-      void api.resolveLocalImage(document.path, src).then((resolved) => {
-        const currentImages = Array.from(
-          scrollRef.current?.querySelectorAll<HTMLImageElement>("img[data-mdv-local-image]") ?? [],
-        ).filter((currentImage) => currentImage.dataset.mdvLocalImage === src);
-        if (resolved.exists) {
-          const url = api.localImageUrl(resolved.path);
-          for (const currentImage of currentImages) {
-            currentImage.dataset.imageState = "loaded";
-            currentImage.src = url;
-          }
-          return;
+  useLayoutEffect(() => {
+    if (!document) return;
+    let cancelled = false;
+    const resolveImages = () => {
+      const root = markdownRef.current ?? scrollRef.current;
+      if (!root || cancelled) return;
+      const images = Array.from(
+        root.querySelectorAll<HTMLImageElement>("img[data-mdv-local-image]"),
+      );
+      for (const image of images) {
+        const src = image.dataset.mdvLocalImage;
+        if (
+          !src ||
+          image.dataset.imageState === "resolving" ||
+          image.dataset.imageState === "loaded"
+        ) {
+          continue;
         }
-        for (const currentImage of currentImages) {
-          const placeholder = documentPlaceholder(
-            `image not found: ${filenameForPath(resolved.path)}`,
-          );
-          currentImage.replaceWith(placeholder);
-        }
-      });
-    }
+        image.dataset.imageState = "resolving";
+        void api
+          .resolveLocalImage(document.path, src)
+          .then((resolved) => {
+            if (cancelled) return;
+            const currentRoot = markdownRef.current ?? scrollRef.current;
+            const currentImages = Array.from(
+              currentRoot?.querySelectorAll<HTMLImageElement>("img[data-mdv-local-image]") ?? [],
+            ).filter((currentImage) => currentImage.dataset.mdvLocalImage === src);
+            if (resolved.exists) {
+              const url = api.localImageUrl(resolved.path);
+              for (const currentImage of currentImages) {
+                currentImage.dataset.imageState = "loaded";
+                currentImage.src = url;
+              }
+              return;
+            }
+            for (const currentImage of currentImages) {
+              const placeholder = documentPlaceholder(
+                `image not found: ${filenameForPath(resolved.path)}`,
+              );
+              currentImage.replaceWith(placeholder);
+            }
+          })
+          .catch(() => {
+            if (cancelled) return;
+            const currentRoot = markdownRef.current ?? scrollRef.current;
+            const currentImages = Array.from(
+              currentRoot?.querySelectorAll<HTMLImageElement>("img[data-mdv-local-image]") ?? [],
+            ).filter((currentImage) => currentImage.dataset.mdvLocalImage === src);
+            for (const currentImage of currentImages) {
+              const placeholder = documentPlaceholder(`image not found: ${filenameForPath(src)}`);
+              currentImage.replaceWith(placeholder);
+            }
+          });
+      }
+    };
+    resolveImages();
+    const frame = window.requestAnimationFrame(resolveImages);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
   }, [api, document, html]);
 
   useEffect(() => {
-    if (!loadRemoteImages || !scrollRef.current) return;
+    if (!loadRemoteImages || !markdownRef.current) return;
     const images = Array.from(
-      scrollRef.current.querySelectorAll<HTMLImageElement>(
+      markdownRef.current.querySelectorAll<HTMLImageElement>(
         "img.mdv-image:not([data-mdv-local-image])",
       ),
     ).filter((image) => isRemoteUrl(image.getAttribute("src") ?? ""));
@@ -914,8 +982,8 @@ function Viewer() {
   }, [html, loadRemoteImages]);
 
   useLayoutEffect(() => {
-    if (!scrollRef.current) return;
-    enhanceCodeBlocks(scrollRef.current);
+    if (!markdownRef.current) return;
+    enhanceCodeBlocks(markdownRef.current);
   }, [html]);
 
   useEffect(
@@ -1087,7 +1155,7 @@ function Viewer() {
                 {findMatches.length} block matches
               </div>
             ) : null}
-            <div dangerouslySetInnerHTML={{ __html: html }} />
+            <div ref={markdownRef} dangerouslySetInnerHTML={{ __html: html }} />
             {codeMenu ? (
               <CodeBlockMenu
                 block={codeBlockForId(codeMenu.blockId)}
@@ -1128,7 +1196,7 @@ function CodeBlockMenu({
 
   if (!block) return null;
   const left = Math.min(menu.x, window.innerWidth - 180);
-  const top = Math.min(menu.y, window.innerHeight - 112);
+  const top = Math.max(8, Math.min(menu.y, window.innerHeight - 132));
   const code = codeText(block);
   const language = codeLanguage(block);
   const canCopyWithoutPrompts = hasShellPrompts(code, language);
@@ -1331,12 +1399,12 @@ function Inspector() {
       ref={inspectorRef}
       aria-label="Table of contents"
       aria-hidden={!inspectorVisible}
-      className={`mdv-inspector-panel grid w-full grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] transition-opacity duration-[220ms] lg:border-t-0 lg:border-l ${
-        inspectorVisible ? "opacity-100" : "pointer-events-none opacity-0"
+      className={`mdv-inspector-panel grid w-full grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] lg:border-t-0 lg:border-l ${
+        inspectorVisible ? "" : "pointer-events-none"
       }`}
       data-testid="inspector-panel"
     >
-      <div className="min-h-0 overflow-hidden">
+      <div className="grid min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-3.5 pt-3.5 pb-1.5">
           <PanelHeading>On This Page</PanelHeading>
           <button
@@ -1375,7 +1443,7 @@ function Inspector() {
             </label>
           </div>
         </div>
-        <nav className="grid gap-px overflow-auto px-2 py-1" data-testid="toc">
+        <nav className="grid min-h-0 gap-px overflow-auto px-2 py-1" data-testid="toc">
           <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
@@ -1426,7 +1494,7 @@ function Inspector() {
 }
 
 function HistoryRows({ history }: { history: HistoryEntry[] }) {
-  const openDocument = useAppStore((state) => state.openDocument);
+  const navigateToDocument = useAppStore((state) => state.navigateToDocument);
   const revealPath = useAppStore((state) => state.revealPath);
   const removeHistoryEntry = useAppStore((state) => state.removeHistoryEntry);
   if (history.length === 0) return <Muted>No history yet.</Muted>;
@@ -1442,17 +1510,17 @@ function HistoryRows({ history }: { history: HistoryEntry[] }) {
       removeLabel="Remove from History"
       onReveal={() => void revealPath(entry.path)}
       onRemove={() => void removeHistoryEntry(entry.path)}
-      onClick={() => void openDocument(entry.path)}
+      onClick={() => void navigateToDocument(entry.path)}
     />
   ));
 }
 
 function SearchHits({ hits, query }: { hits: SearchHit[]; query: string }) {
-  const openDocument = useAppStore((state) => state.openDocument);
+  const navigateToDocument = useAppStore((state) => state.navigateToDocument);
   const revealPath = useAppStore((state) => state.revealPath);
   const setFindQuery = useAppStore((state) => state.setFindQuery);
   const openHit = async (hit: SearchHit) => {
-    await openDocument(hit.path);
+    await navigateToDocument(hit.path);
     setFindQuery(query);
     window.dispatchEvent(new CustomEvent("mdv:open-find", { bubbles: false }));
   };
@@ -1720,8 +1788,8 @@ function BookmarkContextMenu({
   const atTop = index <= 0;
   const atBottom = index < 0 || index >= bookmarks.length - 1;
   const left = Math.min(menu.x, window.innerWidth - 156);
-  const top = Math.min(menu.y, window.innerHeight - 228);
-  return (
+  const top = Math.max(8, Math.min(menu.y, window.innerHeight - 248));
+  return createPortal(
     <div
       className="fixed z-50 min-w-36 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
       role="menu"
@@ -1749,7 +1817,8 @@ function BookmarkContextMenu({
       </MenuButton>
       <MenuDivider />
       <MenuButton onClick={() => onRemove(menu.bookmarkId)}>Remove Bookmark</MenuButton>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1783,6 +1852,8 @@ function MenuDivider() {
 }
 
 function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[] }) {
+  const currentPath = useAppStore((state) => state.document?.path);
+  const navigateToDocument = useAppStore((state) => state.navigateToDocument);
   const setActiveTocHeadingId = useAppStore((state) => state.setActiveTocHeadingId);
   if (toc.length === 0) {
     return (
@@ -1807,7 +1878,9 @@ function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[]
       type="button"
       onClick={() => {
         setActiveTocHeadingId(heading.id);
-        document.getElementById(heading.id)?.scrollIntoView({ block: "start" });
+        if (currentPath) {
+          void navigateToDocument(currentPath, { fragment: heading.id });
+        }
       }}
     >
       {heading.text}
@@ -1916,7 +1989,7 @@ function DocumentRow({
       {menu ? (
         <DocumentRowContextMenu
           left={Math.min(menu.x, window.innerWidth - 168)}
-          top={Math.min(menu.y, window.innerHeight - 112)}
+          top={Math.max(8, Math.min(menu.y, window.innerHeight - 132))}
           onClick={variant === "search" ? onClick : undefined}
           onClose={() => setMenu(null)}
           onRemove={onRemove}
@@ -1952,7 +2025,7 @@ function DocumentRowContextMenu({
     onClose();
     action();
   };
-  return (
+  return createPortal(
     <div
       className="fixed z-50 min-w-40 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-[12px] text-[var(--chrome-text)] shadow-lg"
       role="menu"
@@ -1971,7 +2044,8 @@ function DocumentRowContextMenu({
           <MenuButton onClick={() => run(onRemove)}>{removeLabel ?? "Remove"}</MenuButton>
         </>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

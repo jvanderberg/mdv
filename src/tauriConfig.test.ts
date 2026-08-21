@@ -122,5 +122,12 @@ describe("tauri bundle parity contract", () => {
     expect(rustSource).not.toContain("Open...");
     expect(rustSource).not.toContain("Choose Editor...");
     expect(rustSource).not.toContain("Slot 1 - Empty");
+    expect(rustSource).toContain("CheckMenuItem::with_id");
+    expect(rustSource).toMatch(
+      /CheckMenuItem::with_id\(\s*app,\s*"smart-typography",\s*"Smart Typography",\s*true,\s*true,/s,
+    );
+    expect(rustSource).toMatch(
+      /CheckMenuItem::with_id\(\s*app,\s*"load-remote-images",\s*"Load Remote Images",\s*true,\s*false,/s,
+    );
   });
 });

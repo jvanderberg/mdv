@@ -8,6 +8,7 @@ import type {
   FileSignature,
   HistoryEntry,
   LoadedDocument,
+  NativeMenuState,
   ResolvedLocalImage,
   ScrollPosition,
   SearchHit,
@@ -54,6 +55,7 @@ export interface MdvApi {
   reorderBookmarks(ids: number[]): Promise<Bookmark[]>;
   instrumentationCapturePath?: () => Promise<string | null>;
   captureTauriWindow?: (outputPath: string) => Promise<void>;
+  updateNativeMenuState?: (state: NativeMenuState) => Promise<void>;
 }
 
 export const api: MdvApi = {
@@ -173,5 +175,8 @@ export const api: MdvApi = {
   },
   captureTauriWindow(outputPath) {
     return tauriInvoke("capture_tauri_window", { outputPath });
+  },
+  updateNativeMenuState(state) {
+    return tauriInvoke("update_menu_state", { state });
   },
 };

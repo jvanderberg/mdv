@@ -10,7 +10,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
+    menu::{CheckMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
     AppHandle, Emitter, Manager, State, Theme, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 use thiserror::Error;
@@ -34,6 +34,27 @@ impl serde::Serialize for MdvError {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeBookmarkSlotState {
+    title: String,
+    enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeMenuState {
+    has_document: bool,
+    has_editor: bool,
+    can_go_back: bool,
+    can_go_forward: bool,
+    sidebar_visible: bool,
+    smart_typography: bool,
+    smart_typography_allowed: bool,
+    load_remote_images: bool,
+    bookmark_slots: Vec<NativeBookmarkSlotState>,
+}
+
 impl From<std::io::Error> for MdvError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(value.to_string())
@@ -43,6 +64,12 @@ impl From<std::io::Error> for MdvError {
 impl From<rusqlite::Error> for MdvError {
     fn from(value: rusqlite::Error) -> Self {
         Self::Db(value.to_string())
+    }
+}
+
+impl From<tauri::Error> for MdvError {
+    fn from(value: tauri::Error) -> Self {
+        Self::App(value.to_string())
     }
 }
 
@@ -242,11 +269,14 @@ impl Store {
 
     fn remove_history(&self, path: &str) -> MdvResult<()> {
         self.conn.execute("DELETE FROM history WHERE path = ?1", [path])?;
+        self.conn
+            .execute("DELETE FROM scroll_positions WHERE path = ?1", [path])?;
         Ok(())
     }
 
     fn clear_history(&self) -> MdvResult<()> {
         self.conn.execute("DELETE FROM history", [])?;
+        self.conn.execute("DELETE FROM scroll_positions", [])?;
         Ok(())
     }
 
@@ -749,6 +779,96 @@ fn instrumentation_capture_path() -> Option<String> {
     env::var("MDV_INSTRUMENT_TAURI_CAPTURE").ok()
 }
 
+#[tauri::command]
+fn update_menu_state(app: AppHandle, state: NativeMenuState) -> MdvResult<()> {
+    let Some(menu) = app.menu() else {
+        return Ok(());
+    };
+
+    set_menu_item_text(&menu, "toggle-sidebar", if state.sidebar_visible { "Hide Sidebar" } else { "Show Sidebar" })?;
+    set_menu_item_enabled(&menu, "edit-current-file", state.has_document)?;
+    set_menu_item_enabled(&menu, "choose-editor", true)?;
+    set_menu_item_enabled(&menu, "forget-editor", state.has_editor)?;
+    set_menu_item_enabled(&menu, "back", state.can_go_back)?;
+    set_menu_item_enabled(&menu, "forward", state.can_go_forward)?;
+    set_menu_item_enabled(&menu, "bookmark-current-spot", state.has_document)?;
+    set_menu_item_enabled(&menu, "set-placeholder", state.has_document)?;
+    set_menu_item_enabled(&menu, "jump-to-placeholder", state.has_document)?;
+    set_check_menu_item_state(
+        &menu,
+        "smart-typography",
+        if state.smart_typography_allowed {
+            "Smart Typography"
+        } else {
+            "Smart Typography (off for this theme)"
+        },
+        state.smart_typography_allowed,
+        state.smart_typography && state.smart_typography_allowed,
+    )?;
+    set_check_menu_item_state(
+        &menu,
+        "load-remote-images",
+        "Load Remote Images",
+        state.has_document,
+        state.load_remote_images,
+    )?;
+
+    for (index, slot) in state.bookmark_slots.iter().take(5).enumerate() {
+        let id = format!("bookmark-slot-{}", index + 1);
+        let text = if slot.enabled {
+            format!("Slot {} — {}", index + 1, slot.title)
+        } else {
+            format!("Slot {} — Empty", index + 1)
+        };
+        set_menu_item_text(&menu, &id, &text)?;
+        set_menu_item_enabled(&menu, &id, slot.enabled)?;
+    }
+
+    Ok(())
+}
+
+fn set_menu_item_text(menu: &Menu<tauri::Wry>, id: &str, text: &str) -> MdvResult<()> {
+    let Some(item) = menu.get(id) else {
+        return Ok(());
+    };
+    match item {
+        MenuItemKind::MenuItem(item) => item.set_text(text)?,
+        MenuItemKind::Check(item) => item.set_text(text)?,
+        _ => {}
+    }
+    Ok(())
+}
+
+fn set_menu_item_enabled(menu: &Menu<tauri::Wry>, id: &str, enabled: bool) -> MdvResult<()> {
+    let Some(item) = menu.get(id) else {
+        return Ok(());
+    };
+    match item {
+        MenuItemKind::MenuItem(item) => item.set_enabled(enabled)?,
+        MenuItemKind::Check(item) => item.set_enabled(enabled)?,
+        _ => {}
+    }
+    Ok(())
+}
+
+fn set_check_menu_item_state(
+    menu: &Menu<tauri::Wry>,
+    id: &str,
+    text: &str,
+    enabled: bool,
+    checked: bool,
+) -> MdvResult<()> {
+    let Some(item) = menu.get(id) else {
+        return Ok(());
+    };
+    if let MenuItemKind::Check(item) = item {
+        item.set_text(text)?;
+        item.set_enabled(enabled)?;
+        item.set_checked(checked)?;
+    }
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 #[tauri::command]
 fn capture_tauri_window(window: WebviewWindow, output_path: String) -> MdvResult<()> {
@@ -1143,12 +1263,20 @@ fn mdv_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "zoom-out", "Zoom Out", true, Some("Cmd+-"))?,
             &MenuItem::with_id(app, "actual-size", "Actual Size", true, None::<&str>)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "smart-typography", "Smart Typography", true, None::<&str>)?,
-            &MenuItem::with_id(
+            &CheckMenuItem::with_id(
+                app,
+                "smart-typography",
+                "Smart Typography",
+                true,
+                true,
+                None::<&str>,
+            )?,
+            &CheckMenuItem::with_id(
                 app,
                 "load-remote-images",
                 "Load Remote Images",
                 true,
+                false,
                 None::<&str>,
             )?,
             &PredefinedMenuItem::separator(app)?,
@@ -1307,7 +1435,8 @@ pub fn run() {
             open_in_editor,
             install_cli,
             instrumentation_capture_path,
-            capture_tauri_window
+            capture_tauri_window,
+            update_menu_state
         ])
         .build(tauri::generate_context!())
         .expect("error while building mdv")
@@ -1472,6 +1601,23 @@ mod tests {
             .load_scroll_position(&doc.to_string_lossy())
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn removing_history_clears_matching_scroll_position() {
+        let temp = tempfile::tempdir().unwrap();
+        let db = temp.path().join("mdv.db");
+        let doc = temp.path().join("doc.md");
+        fs::write(&doc, "# Title\n\nBody").unwrap();
+
+        let store = Store::open(db).unwrap();
+        let path = doc.to_string_lossy();
+        store.add_history(&doc, "# Title\n\nBody").unwrap();
+        store.save_scroll_position(&path, 2, "body", 480).unwrap();
+        assert!(store.load_scroll_position(&path).unwrap().is_some());
+
+        store.remove_history(&path).unwrap();
+        assert!(store.load_scroll_position(&path).unwrap().is_none());
     }
 
     #[test]

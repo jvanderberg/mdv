@@ -38,11 +38,41 @@ Every completed slice must satisfy these gates:
 
 Current high-priority exact-parity gaps from the latest captures:
 
+- Multi-window behavior still needs shared-state broadcast coverage for history,
+  bookmarks, menu state, and per-window viewer state.
+- Closed upstream PR history still needs a PR-by-PR audit against the Tauri
+  port. Mermaid chart PRs are explicitly out of scope for this port.
 - Re-run native/Tauri captures after each remaining feature slice and record any
   new visual drift before moving on.
 
 Recently completed exact-parity slices:
 
+- Removed the invented history-search `Clear` button; Swift exposes row removal
+  through row actions, not a clear-history command inside the search pod.
+- TOC, search, bookmarks, right inspector, and left history sidebar collapse now
+  use animated mdv panes. The left sidebar keeps a stable desktop split-view
+  column and collapses to the 6pt edge gutter with the same 0.22s shell
+  animation observed in Swift `ContentView.swift`.
+- Smart Typography now has explicit browser parity coverage proving it rerenders
+  the current document immediately, changing quotes/dashes when enabled and
+  restoring literal punctuation when toggled off.
+- Smart Typography and Load Remote Images are now native checkbox menu items,
+  matching Swift `Toggle` menu semantics. The Tauri app now synchronizes checked
+  state, disabled state, Smart Typography's theme-specific alternate title,
+  Back/Forward enablement, editor/document action enablement, sidebar show/hide
+  labels, and bookmark-slot labels from renderer state.
+- Navigation now records and restores Swift-style history snapshots across
+  sidebar selection, search hits, bookmark jumps, placeholder jumps, native open
+  requests, drag/drop, local links, and TOC clicks. Same-file jumps restore
+  visible block, fragment, or scroll position without unnecessarily closing and
+  reopening the document.
+- History deletion now clears its persisted scroll-position record, matching the
+  Swift history cleanup behavior.
+- Latest parity gate run: `npm run lint`, `npm test`, `npm run build`,
+  `cargo test --manifest-path src-tauri/Cargo.toml`, `CI=1 npm run
+  test:parity` (181 passed, 2 skipped), and `npm run compare:visual` all pass.
+  The visual comparator captured both real apps and reported three-panel
+  structure for both native and Tauri captures.
 - Editing the current file now keeps the document open in mdv and reloads editor
   saves in place. Same-file native open/drop events are treated as reloads
   instead of fresh opens, and the macOS editor launcher prefers the selected
@@ -233,7 +263,6 @@ Implemented so far:
 - Reopening a file moves it to the top.
 - Sidebar history survives restart.
 - Delete one history row via swipe/action.
-- Clear all history.
 - Context menu: reveal in Finder.
 - History files are indexed into SQLite FTS for global search.
 
@@ -506,8 +535,8 @@ Status: complete for the current harness gate.
 Goal: keep the test harness green before adding new behavior.
 
 - Fixed failing bookmark deletion workflow.
-- Moved the history Clear action out of the search label so it has reliable
-  button semantics.
+- Removed the invented history search `Clear` button; Swift exposes row removal
+  through row actions, not a clear-history command inside the search pod.
 - Defer generated parity status reporting until the matrix gets large enough
   to justify it; this document is the source of truth for now.
 - Ensure `npm run test:parity` is the gate after every phase.

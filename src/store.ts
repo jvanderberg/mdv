@@ -61,6 +61,7 @@ export interface AppState {
   editCurrentFile: () => Promise<void>;
   forgetEditor: () => void;
   openDocument: (path: string) => Promise<void>;
+  navigateToDocument: (path: string, options?: NavigationTargetOptions) => Promise<void>;
   reloadCurrentDocumentFromDisk: () => Promise<void>;
   openFirstPath: (paths: string[]) => Promise<void>;
   navigateToHref: (href: string) => Promise<void>;
@@ -105,6 +106,14 @@ interface NavigationSnapshot {
   blockFingerprint?: string;
   title?: string;
   scrollTop?: number;
+}
+
+interface NavigationTargetOptions {
+  fragment?: string | null;
+  blockIndex?: number | null;
+  blockFingerprint?: string;
+  scrollTop?: number | null;
+  pushHistory?: boolean;
 }
 
 const documentExtensions = new Set(["md", "markdown", "mdown", "mkd", "txt"]);
@@ -152,7 +161,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async chooseAndOpenDocument() {
     const selected = await get().api.openPath();
-    if (selected) await get().openDocument(selected);
+    if (selected) await get().navigateToDocument(selected);
   },
 
   async chooseAndOpenDocumentInNewWindow() {
@@ -162,7 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async chooseAndOpenDirectory() {
     const selected = await get().api.openDirectory();
-    if (selected) await get().openDocument(selected);
+    if (selected) await get().navigateToDocument(selected);
   },
 
   async chooseEditor() {
@@ -218,6 +227,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().refreshLists();
   },
 
+  async navigateToDocument(path, options = {}) {
+    await navigateToDocumentPath(set, get, path, options);
+  },
+
   async reloadCurrentDocumentFromDisk() {
     const current = get().document;
     if (!current) return;
@@ -245,42 +258,24 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async openFirstPath(paths) {
     const path = paths[0];
-    if (path) await get().openDocument(path);
+    if (path) await get().navigateToDocument(path);
   },
 
   async navigateToHref(href) {
     const current = get().document;
     if (!current) return;
     const target = resolveLinkTarget(current.path, href);
-    const currentSnapshot = snapshotFor(
-      current.path,
-      get().currentFragment,
-      get().activeBlockIndex,
-    );
     if (target.kind === "fragment") {
-      set((state) => ({
-        backStack: [...state.backStack, currentSnapshot],
-        currentFragment: target.fragment,
-        forwardStack: [],
-      }));
+      await get().navigateToDocument(current.path, { fragment: target.fragment });
       return;
     }
     if (target.kind === "document") {
-      set((state) => ({
-        backStack: [...state.backStack, currentSnapshot],
-        forwardStack: [],
-      }));
       try {
-        await get().openDocument(target.path);
+        await get().navigateToDocument(target.path, { fragment: target.fragment });
       } catch {
-        set((state) => ({
-          backStack: state.backStack.slice(0, -1),
-        }));
         await get().api.openExternalTarget(target.path);
         return;
       }
-      const { fragment } = target;
-      set({ currentFragment: fragment });
       return;
     }
     await get().api.openExternalTarget(target.href);
@@ -299,12 +294,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       backStack: state.backStack.slice(0, -1),
       forwardStack: [...state.forwardStack, currentSnapshot],
     }));
-    await get().openDocument(previous.path);
-    const { fragment } = previous;
-    set({
-      currentFragment: fragment,
-      pendingBlockIndex: fragment ? null : previous.blockIndex,
-    });
+    await restoreNavigationSnapshot(set, get, previous);
   },
 
   async navigateForward() {
@@ -320,12 +310,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       backStack: [...state.backStack, currentSnapshot],
       forwardStack: state.forwardStack.slice(0, -1),
     }));
-    await get().openDocument(next.path);
-    const { fragment } = next;
-    set({
-      currentFragment: fragment,
-      pendingBlockIndex: fragment ? null : next.blockIndex,
-    });
+    await restoreNavigationSnapshot(set, get, next);
   },
 
   async revealPath(path) {
@@ -422,14 +407,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   async openBookmark(id) {
     const bookmark = get().bookmarks.find((entry) => entry.id === id);
     if (!bookmark) return;
-    await get().openDocument(bookmark.path);
+    await get().navigateToDocument(bookmark.path, {
+      blockIndex: bookmark.block_index,
+      blockFingerprint: bookmark.block_fingerprint,
+    });
     set({
       activeBookmarkId: bookmark.id,
-      pendingBlockIndex: resolveBookmarkAnchor(
-        get().blocks,
-        bookmark.block_index,
-        bookmark.block_fingerprint,
-      ),
     });
   },
 
@@ -466,16 +449,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   async jumpToPlaceholder() {
     const { placeholder } = get();
     if (!placeholder) return;
-    await get().openDocument(placeholder.path);
+    await get().navigateToDocument(placeholder.path, {
+      fragment: placeholder.fragment,
+      blockIndex: placeholder.blockIndex,
+      blockFingerprint: placeholder.blockFingerprint,
+      scrollTop: placeholder.scrollTop ?? 0,
+    });
     set({
       activeBookmarkId: null,
-      currentFragment: placeholder.fragment,
-      pendingBlockIndex: resolveBookmarkAnchor(
-        get().blocks,
-        placeholder.blockIndex,
-        placeholder.blockFingerprint ?? "",
-      ),
-      pendingScrollTop: placeholder.scrollTop ?? 0,
     });
   },
 
@@ -597,6 +578,74 @@ function rerenderCurrentDocument(set: (partial: Partial<AppState>) => void, get:
     toc: rendered.toc,
     activeTocHeadingId: rendered.toc[0]?.id ?? null,
     findMatches: findBlockMatches(rendered.blocks, findQuery),
+  });
+}
+
+async function navigateToDocumentPath(
+  set: (partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)) => void,
+  get: () => AppState,
+  path: string,
+  options: NavigationTargetOptions,
+) {
+  const current = get().document;
+  const pushHistory = options.pushHistory ?? true;
+  const currentSnapshot = current
+    ? snapshotFor(current.path, get().currentFragment, get().activeBlockIndex)
+    : null;
+  if (currentSnapshot && pushHistory) {
+    set((state) => ({
+      backStack: [...state.backStack, currentSnapshot],
+      forwardStack: [],
+    }));
+  }
+
+  if (current?.path !== path) {
+    try {
+      await get().openDocument(path);
+    } catch (error) {
+      if (currentSnapshot && pushHistory) {
+        set((state) => ({
+          backStack: state.backStack.slice(0, -1),
+        }));
+      }
+      throw error;
+    }
+  }
+
+  applyNavigationTarget(set, get, options);
+}
+
+async function restoreNavigationSnapshot(
+  set: (partial: Partial<AppState> | ((state: AppState) => Partial<AppState>)) => void,
+  get: () => AppState,
+  snapshot: NavigationSnapshot,
+) {
+  if (get().document?.path !== snapshot.path) {
+    await get().openDocument(snapshot.path);
+  }
+  applyNavigationTarget(set, get, {
+    fragment: snapshot.fragment,
+    blockIndex: snapshot.blockIndex,
+    blockFingerprint: snapshot.blockFingerprint,
+    scrollTop: snapshot.scrollTop,
+    pushHistory: false,
+  });
+}
+
+function applyNavigationTarget(
+  set: (partial: Partial<AppState>) => void,
+  get: () => AppState,
+  options: NavigationTargetOptions,
+) {
+  const fragment = options.fragment ?? null;
+  const blockIndex =
+    options.blockIndex === undefined || options.blockIndex === null
+      ? null
+      : resolveBookmarkAnchor(get().blocks, options.blockIndex, options.blockFingerprint ?? "");
+  set({
+    currentFragment: fragment,
+    pendingBlockIndex: fragment ? null : blockIndex,
+    pendingScrollTop: options.scrollTop ?? null,
   });
 }
 
