@@ -85,6 +85,36 @@ test("filters the table of contents inside the inspector", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("inspector typography and spacing match the Swift pane", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await ensureInspector(page);
+
+  const heading = page.getByRole("heading", { name: "On This Page" });
+  await expect(heading).toHaveCSS("font-size", "11px");
+  await expect(heading).toHaveCSS("letter-spacing", "0.6px");
+  const tocRow = page.getByTestId("toc").getByRole("button", { name: "What's here" });
+  await expect(tocRow).toHaveCSS("font-size", "12px");
+  await expect(tocRow).toHaveCSS("min-height", "26px");
+  await expect(tocRow).toHaveCSS("border-radius", "5px");
+
+  await page.getByRole("button", { name: "Filter headings" }).click();
+  const search = page.locator(".mdv-inspector-search");
+  await expect(search).toHaveCSS("border-radius", "6px");
+  await expect(search.locator("input")).toHaveCSS("font-size", "12px");
+
+  await ensureBookmarksExpanded(page);
+  await page.getByTestId("bookmarks").getByRole("button", { name: "Bookmarks" }).click();
+  await expect(page.getByTestId("bookmarks").getByRole("button", { name: "Bookmarks" })).toHaveCSS(
+    "height",
+    "32px",
+  );
+  await expect(page.getByTestId("bookmarks-resizer")).toHaveCount(0);
+});
+
 test("tracks the active heading in the table of contents", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
@@ -334,12 +364,15 @@ test("bookmarks and scroll persistence use the top visible rendered block", asyn
   const bookmarkIndex = await page.evaluate(() => window.__MDV_BOOKMARKS__?.[0]?.block_index);
   expect(bookmarkIndex).toBe(6);
 
-  await page.waitForTimeout(180);
-  const scrollPositionIndex = await page.evaluate(
-    ([path]) => window.__MDV_SCROLL_POSITIONS__?.[path]?.block_index,
-    [abs("test-docs/toc-stress.md")],
-  );
-  expect(scrollPositionIndex).toBe(6);
+  await viewer.evaluate((element) => element.dispatchEvent(new Event("scroll")));
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        ([path]) => window.__MDV_SCROLL_POSITIONS__?.[path]?.block_index,
+        [abs("test-docs/toc-stress.md")],
+      ),
+    )
+    .toBe(6);
 
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),

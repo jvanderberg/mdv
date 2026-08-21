@@ -40,7 +40,6 @@ Current high-priority exact-parity gaps from the latest captures:
 
 - Remove native-capture compositing artifacts or isolate document-rendering
   comparisons so black outline artifacts do not mask real drift.
-- Match inspector typography/spacing and collapsed Bookmarks placement.
 - Replace approximate SVG toolbar symbols with closer SF Symbol equivalents or a
   native toolbar strategy if web SVG parity remains visibly off.
 
@@ -77,6 +76,10 @@ Recently completed exact-parity slices:
   `marks rendered top-level blocks with mdv block indices` and the Playwright
   parity test `bookmarks and scroll persistence use the top visible rendered
   block`.
+- The inspector now uses Swift-sized 11 px uppercase section headings with 0.6 px
+  tracking, compact 26 px TOC rows, the custom compact heading filter field, and
+  collapsed Bookmarks placement without a resize divider. Covered by the
+  Playwright parity test `inspector typography and spacing match the Swift pane`.
 
 ## Current Tauri Baseline
 

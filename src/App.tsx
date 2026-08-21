@@ -17,6 +17,7 @@ type IconName =
   | "chevronRight"
   | "chevronUp"
   | "docText"
+  | "listBulletIndent"
   | "magnifyingglass"
   | "paintpalette"
   | "pencil"
@@ -727,8 +728,8 @@ function Inspector() {
       aria-label="Table of contents"
       className="grid w-full grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden border-[var(--border)] border-t bg-[var(--panel)] lg:w-[240px] lg:border-t-0 lg:border-l"
     >
-      <div className="min-h-0 overflow-auto p-4">
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="min-h-0 overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-3.5 pt-3.5 pb-1.5">
           <PanelHeading>On This Page</PanelHeading>
           <button
             className="mdv-pane-icon-button"
@@ -740,15 +741,29 @@ function Inspector() {
           </button>
         </div>
         {tocSearchVisible ? (
-          <input
-            className="mdv-input mb-3"
-            data-testid="toc-filter"
-            placeholder="Filter headings"
-            value={tocSearchQuery}
-            onChange={(event) => setTocSearchQuery(event.currentTarget.value)}
-          />
+          <div className="px-2.5 pb-1.5">
+            <label className="mdv-inspector-search">
+              <Icon name="magnifyingglass" />
+              <input
+                data-testid="toc-filter"
+                placeholder="Filter headings"
+                value={tocSearchQuery}
+                onChange={(event) => setTocSearchQuery(event.currentTarget.value)}
+              />
+              <button
+                type="button"
+                aria-label="Close heading filter"
+                onClick={() => {
+                  setTocSearchQuery("");
+                  setTocSearchVisible(false);
+                }}
+              >
+                <Icon name="xmark" />
+              </button>
+            </label>
+          </div>
         ) : null}
-        <nav className="mb-5 grid gap-0.5" data-testid="toc">
+        <nav className="grid gap-px overflow-auto px-2 py-1" data-testid="toc">
           <TocRows activeId={activeTocHeadingId} toc={filteredToc} />
         </nav>
       </div>
@@ -902,15 +917,26 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
 
 function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[] }) {
   const setActiveTocHeadingId = useAppStore((state) => state.setActiveTocHeadingId);
-  if (toc.length === 0) return <Muted>No headings.</Muted>;
+  if (toc.length === 0) {
+    return (
+      <div className="grid min-h-36 place-items-center text-center text-[var(--muted)]">
+        <div className="grid justify-items-center gap-2">
+          <span className="mdv-empty-icon">
+            <Icon name="listBulletIndent" />
+          </span>
+          <span className="text-[12px]">No headings</span>
+        </div>
+      </div>
+    );
+  }
   return toc.map((heading) => (
     <button
       key={heading.id}
-      className={`rounded-md px-2.5 py-2 text-left text-sm hover:bg-[var(--panel-strong)] ${
+      className={`mdv-toc-row rounded-[5px] text-left hover:bg-[var(--panel-strong)] ${
         activeId === heading.id ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""
       }`}
       aria-current={activeId === heading.id ? "location" : undefined}
-      style={{ paddingLeft: `${10 + Math.max(0, heading.level - 1) * 12}px` }}
+      style={{ paddingLeft: `${8 + Math.max(0, heading.level - 1) * 12}px` }}
       type="button"
       onClick={() => {
         setActiveTocHeadingId(heading.id);
@@ -1018,7 +1044,11 @@ function DocumentRow({
 }
 
 function PanelHeading({ children }: { children: ReactNode }) {
-  return <h2 className="m-0 font-semibold text-[var(--muted)] text-xs uppercase">{children}</h2>;
+  return (
+    <h2 className="m-0 font-semibold text-[11px] text-[var(--muted)] uppercase tracking-[0.6px]">
+      {children}
+    </h2>
+  );
 }
 
 function Muted({ children }: { children: ReactNode }) {
@@ -1036,6 +1066,12 @@ function Icon({ name }: { name: IconName }) {
       <>
         <path d="M7 3.75h6.25L17 7.5v12.75H7V3.75Z" />
         <path d="M13.25 3.75V7.5H17M9.25 11h5.5M9.25 14h5.5M9.25 17h3.75" />
+      </>
+    ),
+    listBulletIndent: (
+      <>
+        <path d="M5.5 7h.01M5.5 12h.01M5.5 17h.01" />
+        <path d="M9 7h9.5M12 12h6.5M12 17h6.5" />
       </>
     ),
     magnifyingglass: <path d="m16.75 16.75 3 3M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />,
