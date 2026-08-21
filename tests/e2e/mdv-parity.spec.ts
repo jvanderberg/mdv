@@ -424,6 +424,47 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
   await expect(page.getByText("syntax.md").first()).toBeVisible();
 });
 
+test("placeholder appears as a pinned bookmark row and can jump, reveal, and clear", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/toc-stress.md")],
+  );
+
+  const viewer = page.getByTestId("viewer-scroll");
+  await viewer.evaluate((element) => element.scrollTo(0, 520));
+  await page.waitForTimeout(150);
+  await page.evaluate(async () => window.__MDV_MENU_COMMAND__?.("set-placeholder"));
+  await ensureInspector(page);
+  await ensureBookmarksExpanded(page);
+
+  const placeholderRow = page.locator(".mdv-document-row[data-row-variant='placeholder']");
+  await expect(placeholderRow).toHaveCount(1);
+  await expect(placeholderRow).toHaveAttribute("data-selected", "true");
+  await expect(placeholderRow).toContainText("toc-stress.md");
+  await page.getByLabel(/Reveal placeholder .* in Finder/).click();
+
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+  await expect(placeholderRow).toHaveAttribute("data-selected", "false");
+  await placeholderRow.getByRole("button").first().click();
+  await expect(page.getByText("toc-stress.md").first()).toBeVisible();
+  await expect
+    .poll(async () => viewer.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(300);
+
+  await page.getByLabel("Clear placeholder").click();
+  await expect(placeholderRow).toHaveCount(0);
+  await expect(page.getByTestId("bookmarks")).toContainText("No bookmarks");
+
+  const revealCalls = await page.evaluate(() => window.__MDV_REVEAL_CALLS__ ?? []);
+  expect(revealCalls).toContain(abs("test-docs/toc-stress.md"));
+});
+
 test("bookmarks pane resizes and persists its height", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

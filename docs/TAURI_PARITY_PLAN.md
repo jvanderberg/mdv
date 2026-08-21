@@ -536,26 +536,34 @@ Tests:
 
 ### Phase 4 — Scroll Anchors, Bookmarks, Placeholder
 
+Status: in progress. Scroll restore, visible-block tracking, bookmark slot
+jumps, drag reorder, and the transient placeholder row are covered. Bookmark
+title fidelity, context-menu move commands, missing-file bookmark states, and
+full fingerprint relocation remain.
+
 Goal: make reading position and saved spots durable.
 
 - Partially done: scroll positions persist with block estimate, fingerprint,
   and mtime.
 - Done: restore only when mtime matches.
-- Track exact visible/top block in the React viewer.
-- Bookmark actual hovered/top block, not first match.
-- Implement bookmark slot shortcuts `Cmd+1` through `Cmd+5`.
+- Done: track exact visible/top block in the React viewer.
+- Done: bookmark actual hovered/top block, not first match.
+- Done: implement bookmark slot shortcuts `Cmd+1` through `Cmd+5`.
 - Implement bookmark jump-to-anchor with fingerprint relocation.
-- Implement reorder/move top/bottom.
-- Implement transient placeholder `Cmd+Shift+0` / `Cmd+0`.
-- Add current bookmark/placeholder visual state.
+- Partially done: implement reorder/move top/bottom.
+- Done: implement transient placeholder `Cmd+Shift+0` / `Cmd+0`.
+- Done: add current bookmark/placeholder visual state.
+- Done: placeholder appears as a pinned row, can jump, reveal, and clear.
 
 Tests:
 
 - Done: Rust tests for scroll persistence and stale mtime rejection.
 - Unit tests for fingerprint relocation.
 - Done: Playwright test for scroll restore.
-- Playwright tests for bookmark slots, reorder, missing file, placeholder
-  set/jump/clear.
+- Done: Playwright tests for bookmark slots, reorder, and placeholder
+  set/jump/reveal/clear.
+- Add Playwright coverage for missing-file bookmark states and move
+  top/bottom commands.
 
 ### Phase 5 — Images And Privacy
 

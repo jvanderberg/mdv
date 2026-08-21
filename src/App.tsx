@@ -23,6 +23,7 @@ type IconName =
   | "magnifyingglass"
   | "paintpalette"
   | "pencil"
+  | "pinFill"
   | "plus"
   | "sidebarRight"
   | "trash"
@@ -1016,11 +1017,16 @@ function highlightInlineFindMatches(root: Element, query: string) {
 function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const activeBookmarkId = useAppStore((state) => state.activeBookmarkId);
+  const activeBlockIndex = useAppStore((state) => state.activeBlockIndex);
+  const clearPlaceholder = useAppStore((state) => state.clearPlaceholder);
+  const currentPath = useAppStore((state) => state.document?.path);
+  const jumpToPlaceholder = useAppStore((state) => state.jumpToPlaceholder);
   const openBookmark = useAppStore((state) => state.openBookmark);
+  const placeholder = useAppStore((state) => state.placeholder);
   const reorderBookmarks = useAppStore((state) => state.reorderBookmarks);
   const revealPath = useAppStore((state) => state.revealPath);
   const removeBookmark = useAppStore((state) => state.removeBookmark);
-  if (bookmarks.length === 0) {
+  if (bookmarks.length === 0 && !placeholder) {
     return (
       <div className="grid min-h-28 place-items-center px-2 py-5 text-center text-[var(--muted)]">
         <div className="grid justify-items-center gap-1.5">
@@ -1036,47 +1042,71 @@ function BookmarkRows({ bookmarks }: { bookmarks: Bookmark[] }) {
       </div>
     );
   }
-  return bookmarks.map((bookmark) => (
-    <DocumentRow
-      key={bookmark.id}
-      path={bookmark.path}
-      title={bookmark.title}
-      subtitle={filenameForPath(bookmark.path)}
-      muted={!bookmark.file_exists}
-      variant="bookmark"
-      iconName={bookmark.file_exists ? "bookmarkFill" : "docText"}
-      selected={activeBookmarkId === bookmark.id}
-      draggable
-      revealLabel={`Reveal bookmark ${bookmark.title} in Finder`}
-      removeLabel={`Remove bookmark ${bookmark.title}`}
-      onDragStart={(event) => {
-        setDraggingId(bookmark.id);
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", String(bookmark.id));
-      }}
-      onDragEnd={() => setDraggingId(null)}
-      onDragOver={(event) => {
-        if (draggingId === null || draggingId === bookmark.id) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        const sourceId = Number(event.dataTransfer.getData("text/plain") || draggingId);
-        if (!Number.isInteger(sourceId) || sourceId === bookmark.id) return;
-        const ids = bookmarks.map((entry) => entry.id);
-        const sourceIndex = ids.indexOf(sourceId);
-        const targetIndex = ids.indexOf(bookmark.id);
-        if (sourceIndex < 0 || targetIndex < 0) return;
-        ids.splice(sourceIndex, 1);
-        ids.splice(targetIndex, 0, sourceId);
-        void reorderBookmarks(ids);
-      }}
-      onReveal={() => void revealPath(bookmark.path)}
-      onRemove={() => void removeBookmark(bookmark.id)}
-      onClick={() => void openBookmark(bookmark.id)}
-    />
-  ));
+  const placeholderSelected =
+    !!placeholder &&
+    currentPath === placeholder.path &&
+    activeBlockIndex === placeholder.blockIndex;
+  return (
+    <>
+      {placeholder ? (
+        <DocumentRow
+          key="placeholder"
+          path={placeholder.path}
+          title={placeholder.title ?? "Placeholder"}
+          subtitle={filenameForPath(placeholder.path)}
+          variant="placeholder"
+          iconName="pinFill"
+          selected={placeholderSelected}
+          revealLabel={`Reveal placeholder ${placeholder.title ?? filenameForPath(placeholder.path)} in Finder`}
+          removeLabel="Clear placeholder"
+          onReveal={() => void revealPath(placeholder.path)}
+          onRemove={clearPlaceholder}
+          onClick={() => void jumpToPlaceholder()}
+        />
+      ) : null}
+      {bookmarks.map((bookmark) => (
+        <DocumentRow
+          key={bookmark.id}
+          path={bookmark.path}
+          title={bookmark.title}
+          subtitle={filenameForPath(bookmark.path)}
+          muted={!bookmark.file_exists}
+          variant="bookmark"
+          iconName={bookmark.file_exists ? "bookmarkFill" : "docText"}
+          selected={activeBookmarkId === bookmark.id}
+          draggable
+          revealLabel={`Reveal bookmark ${bookmark.title} in Finder`}
+          removeLabel={`Remove bookmark ${bookmark.title}`}
+          onDragStart={(event) => {
+            setDraggingId(bookmark.id);
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", String(bookmark.id));
+          }}
+          onDragEnd={() => setDraggingId(null)}
+          onDragOver={(event) => {
+            if (draggingId === null || draggingId === bookmark.id) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const sourceId = Number(event.dataTransfer.getData("text/plain") || draggingId);
+            if (!Number.isInteger(sourceId) || sourceId === bookmark.id) return;
+            const ids = bookmarks.map((entry) => entry.id);
+            const sourceIndex = ids.indexOf(sourceId);
+            const targetIndex = ids.indexOf(bookmark.id);
+            if (sourceIndex < 0 || targetIndex < 0) return;
+            ids.splice(sourceIndex, 1);
+            ids.splice(targetIndex, 0, sourceId);
+            void reorderBookmarks(ids);
+          }}
+          onReveal={() => void revealPath(bookmark.path)}
+          onRemove={() => void removeBookmark(bookmark.id)}
+          onClick={() => void openBookmark(bookmark.id)}
+        />
+      ))}
+    </>
+  );
 }
 
 function TocRows({ activeId, toc }: { activeId: string | null; toc: TocHeading[] }) {
@@ -1149,7 +1179,7 @@ function DocumentRow({
   subtitle: ReactNode;
   subtitleMode?: "head" | "tail";
   title: string;
-  variant?: "history" | "search" | "bookmark";
+  variant?: "history" | "search" | "bookmark" | "placeholder";
 }) {
   const currentPath = useAppStore((state) => state.document?.path);
   const selected = selectedOverride ?? currentPath === path;
@@ -1231,6 +1261,7 @@ function Icon({ name }: { name: IconName }) {
     magnifyingglass: "magnifyingglass",
     paintpalette: "paintpalette",
     pencil: "pencil",
+    pinFill: "pin.fill",
     plus: "plus",
     sidebarRight: "sidebar.right",
     trash: "trash",
@@ -1268,6 +1299,13 @@ function Icon({ name }: { name: IconName }) {
         <path d="M4.75 17.25 4 20l2.75-.75L18.6 7.4a1.75 1.75 0 0 0 0-2.48l-.52-.52a1.75 1.75 0 0 0-2.48 0L4.75 17.25Z" />
         <path d="m14.5 5.5 4 4" />
       </>
+    ),
+    pinFill: (
+      <path
+        d="M13.75 3.75 20.25 10.25 17.5 11.25 14.2 14.55 14.75 19.75 13.5 21 10 15.55 4.55 12.05 5.8 10.8 11 11.35 14.3 8.05 13.75 3.75Z"
+        fill="currentColor"
+        stroke="none"
+      />
     ),
     plus: <path d="M12 5.25v13.5M5.25 12h13.5" />,
     sidebarRight: (

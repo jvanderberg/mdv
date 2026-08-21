@@ -68,6 +68,7 @@ export interface AppState {
   reorderBookmarks: (ids: number[]) => Promise<void>;
   setPlaceholder: () => void;
   jumpToPlaceholder: () => Promise<void>;
+  clearPlaceholder: () => void;
   removeHistoryEntry: (path: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   removeBookmark: (id: number) => Promise<void>;
@@ -86,6 +87,8 @@ interface NavigationSnapshot {
   path: string;
   fragment: string | null;
   blockIndex: number;
+  blockFingerprint?: string;
+  title?: string;
   scrollTop?: number;
 }
 
@@ -390,13 +393,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setPlaceholder() {
-    const { activeBlockIndex, document, viewerScrollTop } = get();
+    const { activeBlockIndex, blocks, document, toc, viewerScrollTop } = get();
     if (!document) return;
     set({
+      activeBookmarkId: null,
       placeholder: {
         path: document.path,
         fragment: null,
         blockIndex: activeBlockIndex,
+        blockFingerprint: bookmarkFingerprint(blocks[activeBlockIndex] ?? ""),
+        title: titleForBlock(toc, activeBlockIndex, document.filename),
         scrollTop: viewerScrollTop,
       },
     });
@@ -407,10 +413,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!placeholder) return;
     await get().openDocument(placeholder.path);
     set({
+      activeBookmarkId: null,
       currentFragment: placeholder.fragment,
-      pendingBlockIndex: placeholder.blockIndex,
+      pendingBlockIndex: resolveBookmarkAnchor(
+        get().blocks,
+        placeholder.blockIndex,
+        placeholder.blockFingerprint ?? "",
+      ),
       pendingScrollTop: placeholder.scrollTop ?? 0,
     });
+  },
+
+  clearPlaceholder() {
+    set({ placeholder: null });
   },
 
   async removeHistoryEntry(path) {
@@ -556,6 +571,11 @@ function snapshotFor(
   blockIndex: number,
 ): NavigationSnapshot {
   return { path, fragment, blockIndex };
+}
+
+function titleForBlock(toc: TocHeading[], blockIndex: number, fallback: string) {
+  const heading = [...toc].reverse().find((entry) => entry.blockIndex <= blockIndex);
+  return heading?.text ?? fallback;
 }
 
 function scrollToFragment(fragment: string) {
