@@ -239,8 +239,18 @@ test("local links navigate inline while external links fall through", async ({ p
   const externalLink = page.getByRole("link", { name: "Apple developer docs" });
   await externalLink.dispatchEvent("click");
   await expect(page.getByText("links.md").first()).toBeVisible();
-  const calls = await page.evaluate(() => window.__MDV_EXTERNAL_CALLS__ ?? []);
+  let calls = await page.evaluate(() => window.__MDV_EXTERNAL_CALLS__ ?? []);
   expect(calls).toContain("https://developer.apple.com/documentation/swiftui");
+
+  await page.getByRole("link", { name: "The icon image" }).dispatchEvent("click");
+  await expect(page.getByText("links.md").first()).toBeVisible();
+  calls = await page.evaluate(() => window.__MDV_EXTERNAL_CALLS__ ?? []);
+  expect(calls).toContain(abs("test-docs/images/icon.png"));
+
+  await page.getByRole("link", { name: "Hypothetical .markdown file" }).dispatchEvent("click");
+  await expect(page.getByText("links.md").first()).toBeVisible();
+  calls = await page.evaluate(() => window.__MDV_EXTERNAL_CALLS__ ?? []);
+  expect(calls).toContain(abs("test-docs/does-not-exist.markdown"));
 
   await page.keyboard.press("Meta+ArrowLeft");
   await expect(page.getByTestId("markdown-body")).not.toHaveAttribute("data-current-fragment");
@@ -376,6 +386,40 @@ test("renders markdown lists with visible native-style markers", async ({ page }
     padding: expect.any(Number),
   });
   expect(markerStyles.padding).toBeGreaterThan(12);
+});
+
+test("renders table corpus with readable mdv table styling", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/tables.md")],
+  );
+
+  const tables = page.getByTestId("markdown-body").locator("table");
+  await expect(tables).toHaveCount(7);
+
+  const basic = tables.first();
+  await expect(basic).toHaveCSS("display", "block");
+  await expect(basic).toHaveCSS("overflow-x", "auto");
+  await expect(basic).toHaveCSS("border-radius", "7px");
+  await expect(basic.locator("th").first()).toHaveCSS("font-weight", "600");
+  await expect(basic.locator("tbody tr").nth(1).locator("td").first()).not.toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+
+  const alignment = tables.nth(1);
+  await expect(alignment.locator("th").nth(0)).toHaveCSS("text-align", "left");
+  await expect(alignment.locator("th").nth(1)).toHaveCSS("text-align", "center");
+  await expect(alignment.locator("th").nth(2)).toHaveCSS("text-align", "right");
+
+  const formatting = tables.nth(3);
+  await expect(formatting.locator("strong", { hasText: "Important point" })).toBeVisible();
+  await expect(formatting.locator("code", { hasText: "Bundle.main.url" })).toBeVisible();
+  await expect(formatting.getByRole("link", { name: "Click me" })).toBeVisible();
+
+  const wide = tables.nth(5);
+  expect(await wide.evaluate((table) => table.scrollWidth > table.clientWidth)).toBe(true);
 });
 
 test("history search, document find, and bookmarks are automatic workflows", async ({ page }) => {

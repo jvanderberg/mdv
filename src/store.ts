@@ -270,7 +270,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         backStack: [...state.backStack, currentSnapshot],
         forwardStack: [],
       }));
-      await get().openDocument(target.path);
+      try {
+        await get().openDocument(target.path);
+      } catch {
+        set((state) => ({
+          backStack: state.backStack.slice(0, -1),
+        }));
+        await get().api.openExternalTarget(target.path);
+        return;
+      }
       const { fragment } = target;
       set({ currentFragment: fragment });
       return;
@@ -615,7 +623,7 @@ function resolveLinkTarget(currentPath: string, href: string): LinkTarget {
       ? new URL(rawPath).pathname
       : joinPath(dirname(currentPath), rawPath),
   );
-  if (!documentExtensions.has(extension(path))) return { kind: "external", href };
+  if (!documentExtensions.has(extension(path))) return { kind: "external", href: path };
   return { kind: "document", path, fragment };
 }
 

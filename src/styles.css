@@ -865,14 +865,49 @@ button {
 }
 
 .markdown-body table {
-  width: 100%;
-  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  border-spacing: 0;
+  border-collapse: separate;
+  background: var(--bg);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.03);
 }
 
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid var(--border);
-  padding: 6px 9px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 10px;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.markdown-body th {
+  background: color-mix(in srgb, var(--panel) 70%, var(--bg));
+  color: var(--heading, var(--text));
+  font-weight: 600;
+}
+
+.markdown-body tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--panel) 34%, transparent);
+}
+
+.markdown-body tr > :last-child {
+  border-right: 0;
+}
+
+.markdown-body tbody tr:last-child > td {
+  border-bottom: 0;
+}
+
+.markdown-body thead:last-child tr:last-child > th,
+.markdown-body tbody:empty + tbody tr:last-child > td {
+  border-bottom: 0;
 }
 
 .markdown-body blockquote {

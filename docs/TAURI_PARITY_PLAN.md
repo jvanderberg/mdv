@@ -43,6 +43,22 @@ Current high-priority exact-parity gaps from the latest captures:
 
 Recently completed exact-parity slices:
 
+- The `test-docs/tables.md` corpus now has explicit rendering parity coverage
+  for table count, alignment, header/body styling, inline formatting inside
+  cells, and horizontal overflow for the wide-table case. Tables now render with
+  rounded mdv document chrome, subtle header/background treatment, alternating
+  rows, preserved alignment, and local horizontal scrolling instead of pushing
+  the document column.
+- Local link handling now resolves local non-markdown links to absolute file
+  paths before handing them to the system opener, and missing local markdown
+  targets fall through to the system opener after a failed in-app load. Covered
+  by the `test-docs/links.md` corpus links for local PNGs and missing
+  `.markdown` files.
+- Latest parity gate run: `npm run lint`, `npm test`, `npm run build`,
+  `cargo test --manifest-path src-tauri/Cargo.toml`, `npm run test:parity`
+  (161 passed, 1 skipped), and `npm run compare:visual` all pass. The visual
+  comparator captured both real apps and reported three-panel structure for both
+  native and Tauri captures.
 - Markdown rendering now restores visible unordered/ordered list markers after
   Tailwind preflight, preserves nested marker styles and Markdown spacing, and
   routes raw HTML `<img>` tags through mdv's existing local/data/remote/missing
