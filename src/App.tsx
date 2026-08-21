@@ -11,7 +11,7 @@ import {
 } from "react";
 import { hasShellPrompts, stripShellPrompts } from "./codeBlocks";
 import { canInlineHighlightMarkdownBlock } from "./markdown";
-import { useAppStore } from "./store";
+import { type Theme, themes, useAppStore } from "./store";
 import type { Bookmark, HistoryEntry, SearchHit, TocHeading } from "./types";
 
 const loadedRemoteImages = new Set<string>();
@@ -210,13 +210,24 @@ export function App() {
             toggleInspector();
             break;
           case "theme-paper":
-            setTheme("paper");
+          case "theme-high-contrast":
+            setTheme("high-contrast");
             break;
           case "theme-charcoal":
             setTheme("charcoal");
             break;
           case "theme-solarized":
-            setTheme("solarized");
+          case "theme-solarium-daylight":
+            setTheme("solarium-daylight");
+            break;
+          case "theme-system":
+          case "theme-sevilla":
+          case "theme-solarium-moonlight":
+          case "theme-phosphor":
+          case "theme-twilight":
+          case "theme-standard-erin-light":
+          case "theme-standard-erin-dark":
+            setTheme(command.slice("theme-".length) as Theme);
             break;
           default:
             if (command.startsWith("bookmark-slot-")) {
@@ -339,19 +350,20 @@ function TopBar() {
   );
 }
 
-function ThemeMenu({
-  onSelect,
-  selected,
-}: {
-  onSelect: (theme: "paper" | "charcoal" | "solarized") => void;
-  selected: "paper" | "charcoal" | "solarized";
-}) {
+function ThemeMenu({ onSelect, selected }: { onSelect: (theme: Theme) => void; selected: Theme }) {
   const [open, setOpen] = useState(false);
-  const themes = [
-    ["paper", "High Contrast"],
-    ["charcoal", "Charcoal"],
-    ["solarized", "Solarium Daylight"],
-  ] as const;
+  const labels: Record<Theme, string> = {
+    system: "System",
+    "high-contrast": "High Contrast",
+    sevilla: "Sevilla",
+    charcoal: "Charcoal",
+    "solarium-daylight": "Solarium Daylight",
+    "solarium-moonlight": "Solarium Moonlight",
+    phosphor: "Phosphor",
+    twilight: "Twilight",
+    "standard-erin-light": "Standard Erin Light",
+    "standard-erin-dark": "Standard Erin Dark",
+  };
 
   return (
     <div className="relative">
@@ -370,7 +382,7 @@ function ThemeMenu({
           className="absolute top-9 right-0 z-20 min-w-44 rounded-md border border-[var(--border)] bg-[var(--panel)] py-1 text-sm shadow-lg"
           role="menu"
         >
-          {themes.map(([id, label]) => (
+          {themes.map((id) => (
             <button
               key={id}
               className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--panel-strong)]"
@@ -383,7 +395,7 @@ function ThemeMenu({
               }}
             >
               <span aria-hidden="true">{selected === id ? "*" : ""}</span>
-              <span>{label}</span>
+              <span>{labels[id]}</span>
             </button>
           ))}
         </div>

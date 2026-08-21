@@ -1,5 +1,41 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Alegreya";
+  src: url("../mdv/Fonts/Alegreya-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Alegreya";
+  src: url("../mdv/Fonts/Alegreya-Bold.otf") format("opentype");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Besley";
+  src: url("../mdv/Fonts/Besley-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Besley";
+  src: url("../mdv/Fonts/Besley-SemiBold.otf") format("opentype");
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../mdv/Fonts/OpenDyslexic-Regular.otf") format("opentype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("../mdv/Fonts/OpenDyslexic-Bold.otf") format("opentype");
+  font-weight: 700;
+}
+
 :root {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: 0;
@@ -13,6 +49,7 @@
   --title-text: #858585;
   --toolbar-icon: #3f3f46;
   --muted: #4b5563;
+  --heading: #000000;
   --border: #e5e7eb;
   --divider: #d1d5db;
   --accent: #1d6fe0;
@@ -28,20 +65,31 @@
   --code-variable: #1f2328;
   --code-constant: #0550ae;
   --code-operator: #cf222e;
+  --body-font-family:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --base-font-size: 16px;
+  --paragraph-line-height: 1.55;
+  --article-max-width: 860px;
+  --article-padding-x: 40px;
+  --h1-size: 1.75em;
+  --h2-size: 1.4em;
+  --h3-size: 1.15em;
 }
 
 :root[data-theme="charcoal"] {
-  --bg: #1f2328;
-  --panel: #15191e;
-  --panel-strong: #2d333b;
-  --titlebar: #15191e;
-  --text: #d0d7de;
+  --bg: #1b1b21;
+  --panel: #25262c;
+  --panel-strong: #30323a;
+  --titlebar: #1b1b21;
+  --text: #c7d1db;
   --title-text: #8b949e;
-  --toolbar-icon: #c9d1d9;
-  --muted: #8b949e;
-  --border: #444c56;
-  --accent: #6cb6ff;
-  --code: #2d333b;
+  --toolbar-icon: #8c99a8;
+  --muted: #8c99a8;
+  --heading: #f5f7fc;
+  --border: #3b4252;
+  --divider: #3b4252;
+  --accent: #2e7aeb;
+  --code: #25262c;
   --code-plain: #c9d1d9;
   --code-keyword: #ff7b72;
   --code-string: #a5d6ff;
@@ -53,8 +101,16 @@
   --code-variable: #c9d1d9;
   --code-constant: #79c0ff;
   --code-operator: #ff7b72;
+  --base-font-size: 16.5px;
+  --paragraph-line-height: 1.46;
+  --article-max-width: 920px;
+  --article-padding-x: 48px;
+  --h1-size: 1.82em;
+  --h2-size: 1.45em;
+  --h3-size: 1.15em;
 }
 
+:root[data-theme="solarium-daylight"],
 :root[data-theme="solarized"] {
   --bg: #fdf6e3;
   --panel: #eee8d5;
@@ -64,6 +120,7 @@
   --title-text: #657b83;
   --toolbar-icon: #33424a;
   --muted: #657b83;
+  --heading: #073642;
   --border: #d4cbb4;
   --accent: #268bd2;
   --code: #eee8d5;
@@ -78,6 +135,230 @@
   --code-variable: #586e75;
   --code-constant: #6c71c4;
   --code-operator: #859900;
+  --body-font-family: "Besley", ui-serif, Georgia, serif;
+  --paragraph-line-height: 1.36;
+  --article-max-width: 720px;
+  --article-padding-x: 36px;
+  --h1-size: 1.55em;
+  --h2-size: 1.28em;
+  --h3-size: 1.1em;
+}
+
+:root[data-theme="sevilla"] {
+  --bg: #f4efe3;
+  --panel: #eae5d6;
+  --panel-strong: #e0d8c6;
+  --titlebar: #f4efe3;
+  --text: #42372c;
+  --chrome-text: #42372c;
+  --title-text: #968874;
+  --toolbar-icon: #6a5c4d;
+  --muted: #6a5c4d;
+  --heading: #2d2118;
+  --border: #e6dec2;
+  --divider: #e6dec2;
+  --accent: #b0623e;
+  --code: #eae5d6;
+  --code-plain: #42372c;
+  --code-keyword: #8c2a1a;
+  --code-string: #5c4030;
+  --code-number: #7a4a1f;
+  --code-comment: #968874;
+  --code-type: #7b5c3d;
+  --code-function: #2c5f8d;
+  --code-attribute: #b0623e;
+  --code-variable: #42372c;
+  --code-constant: #7a4a1f;
+  --code-operator: #42372c;
+  --body-font-family: "Alegreya", ui-serif, Georgia, serif;
+  --base-font-size: 17px;
+  --paragraph-line-height: 1.6;
+  --article-max-width: 620px;
+  --article-padding-x: 30px;
+  --h1-size: 1.7em;
+  --h2-size: 1.25em;
+  --h3-size: 1.1em;
+}
+
+:root[data-theme="solarium-moonlight"] {
+  --bg: #002b36;
+  --panel: #073642;
+  --panel-strong: #0e4753;
+  --titlebar: #002b36;
+  --text: #93a1a1;
+  --chrome-text: #93a1a1;
+  --title-text: #657b83;
+  --toolbar-icon: #839496;
+  --muted: #839496;
+  --heading: #eee8d5;
+  --border: #0e4753;
+  --divider: #0e4753;
+  --accent: #b58900;
+  --code: #073642;
+  --code-plain: #93a1a1;
+  --code-keyword: #859900;
+  --code-string: #2aa198;
+  --code-number: #d33682;
+  --code-comment: #586e75;
+  --code-type: #b58900;
+  --code-function: #268bd2;
+  --code-attribute: #cb4b16;
+  --code-variable: #93a1a1;
+  --code-constant: #6c71c4;
+  --code-operator: #859900;
+  --body-font-family: "Besley", ui-serif, Georgia, serif;
+  --paragraph-line-height: 1.36;
+  --article-max-width: 720px;
+  --article-padding-x: 36px;
+  --h1-size: 1.55em;
+  --h2-size: 1.28em;
+  --h3-size: 1.1em;
+}
+
+:root[data-theme="phosphor"] {
+  --bg: #000000;
+  --panel: #141414;
+  --panel-strong: #202020;
+  --titlebar: #000000;
+  --text: #f5f5f5;
+  --chrome-text: #f5f5f5;
+  --title-text: #7a7a7a;
+  --toolbar-icon: #b8b8b8;
+  --muted: #b8b8b8;
+  --heading: #ffa500;
+  --border: #2a2a2a;
+  --divider: #2a2a2a;
+  --accent: #ffa500;
+  --code: #141414;
+  --code-plain: #f5f5f5;
+  --code-keyword: #ffb84d;
+  --code-string: #ffd43b;
+  --code-number: #ffaa00;
+  --code-comment: #888888;
+  --code-type: #ffd080;
+  --code-function: #ffa500;
+  --code-attribute: #ffc966;
+  --code-variable: #f5f5f5;
+  --code-constant: #ffaa00;
+  --code-operator: #f5f5f5;
+}
+
+:root[data-theme="twilight"] {
+  --bg: #0a0f14;
+  --panel: #121820;
+  --panel-strong: #1a2129;
+  --titlebar: #0a0f14;
+  --text: #b0b5bc;
+  --chrome-text: #b0b5bc;
+  --title-text: #5b6168;
+  --toolbar-icon: #8c9298;
+  --muted: #8c9298;
+  --heading: #6eba7f;
+  --border: #1e252d;
+  --divider: #1e252d;
+  --accent: #ffd580;
+  --code: #121820;
+  --code-plain: #b0b5bc;
+  --code-keyword: #f8b3b0;
+  --code-string: #a6e3b0;
+  --code-number: #fbd78d;
+  --code-comment: #5b6168;
+  --code-type: #ffd580;
+  --code-function: #a8c9f0;
+  --code-attribute: #c8b5e8;
+  --code-variable: #b0b5bc;
+  --code-constant: #fbd78d;
+  --code-operator: #f8b3b0;
+}
+
+:root[data-theme="standard-erin-light"] {
+  --bg: #fbf7e8;
+  --panel: #f0ead3;
+  --panel-strong: #e4dcc2;
+  --titlebar: #fbf7e8;
+  --text: #2c2a26;
+  --chrome-text: #2c2a26;
+  --title-text: #8b8576;
+  --toolbar-icon: #5c584f;
+  --muted: #5c584f;
+  --heading: #1a1814;
+  --border: #e0d8be;
+  --divider: #e0d8be;
+  --accent: #b0623e;
+  --code: #f0ead3;
+  --code-plain: #2c2a26;
+  --code-keyword: #6a4a87;
+  --code-string: #2a6a52;
+  --code-number: #8a4a1f;
+  --code-comment: #8b8576;
+  --code-type: #5a5034;
+  --code-function: #1b4f8a;
+  --code-attribute: #b0623e;
+  --code-variable: #2c2a26;
+  --code-constant: #8a4a1f;
+  --code-operator: #2c2a26;
+  --body-font-family: "OpenDyslexic", "Dyslexie", ui-sans-serif, system-ui, sans-serif;
+  --base-font-size: 15px;
+}
+
+:root[data-theme="standard-erin-dark"] {
+  --bg: #1b2233;
+  --panel: #252d40;
+  --panel-strong: #2e3a50;
+  --titlebar: #1b2233;
+  --text: #e5dcc5;
+  --chrome-text: #e5dcc5;
+  --title-text: #847c6a;
+  --toolbar-icon: #b0a88f;
+  --muted: #b0a88f;
+  --heading: #f0e8cf;
+  --border: #2e3a50;
+  --divider: #2e3a50;
+  --accent: #c99a4a;
+  --code: #252d40;
+  --code-plain: #e5dcc5;
+  --code-keyword: #c99a4a;
+  --code-string: #d2bd8a;
+  --code-number: #e8b270;
+  --code-comment: #847c6a;
+  --code-type: #d2bd8a;
+  --code-function: #a8c3e0;
+  --code-attribute: #c9846a;
+  --code-variable: #e5dcc5;
+  --code-constant: #e8b270;
+  --code-operator: #e5dcc5;
+  --body-font-family: "OpenDyslexic", "Dyslexie", ui-sans-serif, system-ui, sans-serif;
+  --base-font-size: 15px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --bg: #0a0f14;
+    --panel: #121820;
+    --panel-strong: #1a2129;
+    --titlebar: #0a0f14;
+    --text: #b0b5bc;
+    --chrome-text: #b0b5bc;
+    --title-text: #5b6168;
+    --toolbar-icon: #8c9298;
+    --muted: #8c9298;
+    --heading: #6eba7f;
+    --border: #1e252d;
+    --divider: #1e252d;
+    --accent: #ffd580;
+    --code: #121820;
+    --code-plain: #b0b5bc;
+    --code-keyword: #f8b3b0;
+    --code-string: #a6e3b0;
+    --code-number: #fbd78d;
+    --code-comment: #5b6168;
+    --code-type: #ffd580;
+    --code-function: #a8c9f0;
+    --code-attribute: #c8b5e8;
+    --code-variable: #b0b5bc;
+    --code-constant: #fbd78d;
+    --code-operator: #f8b3b0;
+  }
 }
 
 body {
@@ -354,10 +635,13 @@ button {
 }
 
 .markdown-body {
+  max-width: var(--article-max-width);
+  padding-right: max(24px, var(--article-padding-x));
+  padding-left: max(24px, var(--article-padding-x));
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: calc(16px * var(--zoom));
-  line-height: 1.55;
+  font-family: var(--body-font-family);
+  font-size: calc(var(--base-font-size) * var(--zoom));
+  line-height: var(--paragraph-line-height);
 }
 
 .markdown-body h1,
@@ -370,12 +654,19 @@ button {
   margin-top: 0;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.35em;
-  font-size: 1.75em;
+  color: var(--heading, var(--text));
+  font-size: var(--h1-size);
 }
 
 .markdown-body h2 {
   margin-top: 1.4em;
-  font-size: 1.35em;
+  color: var(--heading, var(--text));
+  font-size: var(--h2-size);
+}
+
+.markdown-body h3 {
+  color: var(--heading, var(--text));
+  font-size: var(--h3-size);
 }
 
 .markdown-body a {

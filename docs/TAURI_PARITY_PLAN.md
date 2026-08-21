@@ -625,19 +625,20 @@ Tests:
 
 Goal: match the reading experience.
 
-- Port the full theme catalog and tokens.
-- Add system theme mode.
-- Add persistent theme menu/selector.
+- Done: Port the full theme catalog IDs, names, palette tokens, and primary
+  typography tokens.
+- Done: Add system theme mode with light/dark CSS resolution.
+- Done: Add persistent theme menu/selector for the full Swift catalog.
 - Add zoom keyboard shortcuts, reset, and HUD.
 - Add smart typography toggle and theme opt-outs.
-- Bundle/load web font equivalents for Alegreya, Besley, OpenDyslexic.
+- Done: Bundle/load web font equivalents for Alegreya, Besley, OpenDyslexic.
 - Implement Standard Erin font fallback where possible.
 - Tune markdown CSS per theme:
-  - Measure.
-  - Heading scale.
-  - Line spacing.
+  - Done: Measure.
+  - Done: Heading scale.
+  - Done: Line spacing.
   - Strong color/weight.
-  - Code palette.
+  - Done: Code palette.
 
 Tests:
 

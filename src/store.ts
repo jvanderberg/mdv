@@ -8,7 +8,20 @@ import {
 import { api as defaultApi, type MdvApi } from "./tauri";
 import type { Bookmark, HistoryEntry, LoadedDocument, SearchHit, TocHeading } from "./types";
 
-export type Theme = "paper" | "charcoal" | "solarized";
+export const themes = [
+  "system",
+  "high-contrast",
+  "sevilla",
+  "charcoal",
+  "solarium-daylight",
+  "solarium-moonlight",
+  "phosphor",
+  "twilight",
+  "standard-erin-light",
+  "standard-erin-dark",
+] as const;
+
+export type Theme = (typeof themes)[number];
 
 export interface AppState {
   api: MdvApi;
@@ -92,7 +105,6 @@ interface NavigationSnapshot {
   scrollTop?: number;
 }
 
-const themes: Theme[] = ["paper", "charcoal", "solarized"];
 const documentExtensions = new Set(["md", "markdown", "mdown", "mkd", "txt"]);
 let searchHistoryRequestToken = 0;
 
@@ -523,7 +535,9 @@ export function resolveBookmarkForTest(
 
 function readTheme(): Theme {
   const stored = localStorage.getItem("mdv.theme");
-  return themes.includes(stored as Theme) ? (stored as Theme) : "paper";
+  if (stored === "paper") return "high-contrast";
+  if (stored === "solarized") return "solarium-daylight";
+  return themes.includes(stored as Theme) ? (stored as Theme) : "high-contrast";
 }
 
 export function readStoredNumber(key: string, fallback: number): number {

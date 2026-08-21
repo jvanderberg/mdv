@@ -63,7 +63,18 @@
   ],
   "features": {
     "codeLanguages": ["bash", "c", "go", "javascript", "python", "ruby", "rust", "toml", "yaml"],
-    "themes": ["paper", "charcoal", "solarized"],
+    "themes": [
+      "system",
+      "high-contrast",
+      "sevilla",
+      "charcoal",
+      "solarium-daylight",
+      "solarium-moonlight",
+      "phosphor",
+      "twilight",
+      "standard-erin-light",
+      "standard-erin-dark"
+    ],
     "keyboardWorkflows": ["open", "find", "history-search", "toc", "bookmark", "theme", "zoom"]
   }
 }

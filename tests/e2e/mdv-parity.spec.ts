@@ -663,6 +663,29 @@ test("themes and zoom alter durable viewer state without layout collapse", async
   await expect(page.getByTestId("markdown-body")).toBeVisible();
 });
 
+test("theme menu exposes the full Swift mdv catalog", async ({ page }) => {
+  const expectedThemes = [
+    ["system", "System"],
+    ["high-contrast", "High Contrast"],
+    ["sevilla", "Sevilla"],
+    ["charcoal", "Charcoal"],
+    ["solarium-daylight", "Solarium Daylight"],
+    ["solarium-moonlight", "Solarium Moonlight"],
+    ["phosphor", "Phosphor"],
+    ["twilight", "Twilight"],
+    ["standard-erin-light", "Standard Erin Light"],
+    ["standard-erin-dark", "Standard Erin Dark"],
+  ] as const;
+
+  await page.goto("/");
+  for (const [id, label] of expectedThemes) {
+    await page.getByRole("button", { name: "Theme" }).click();
+    await expect(page.getByRole("menuitemradio", { name: label })).toBeVisible();
+    await page.getByRole("menuitemradio", { name: label }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", id);
+  }
+});
+
 test("code syntax palettes follow the active mdv theme", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(
