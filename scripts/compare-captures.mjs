@@ -15,7 +15,9 @@ console.log("native", native);
 console.log("tauri ", tauri);
 
 const failures = [];
-for (const [name, value] of Object.entries(tauri.regions)) {
+const comparisonRegions = ["titlebar", "left", "documentInterior", "right"];
+for (const name of comparisonRegions) {
+  const value = tauri.regions[name];
   const baseline = native.regions[name];
   if (!baseline) continue;
   const delta = Math.abs(value.luma - baseline.luma);
@@ -24,8 +26,8 @@ for (const [name, value] of Object.entries(tauri.regions)) {
 
 if (!native.hasThreePanels) failures.push("native capture does not expose three panels");
 if (!tauri.hasThreePanels) failures.push("tauri capture does not expose three panels");
-if (native.regions.document.luma < 30) {
-  failures.push("native document region is black; native Markdown pane was not captured");
+if (native.regions.documentInterior.luma < 30) {
+  failures.push("native document interior is black; native Markdown pane was not captured");
 }
 if (tauri.darkTextRatio < 0.002) failures.push("tauri capture has too little visible text");
 
@@ -36,17 +38,37 @@ if (failures.length > 0) {
 
 function describeImage(image) {
   const { width, height } = image;
+  const titlebarBottom = Math.round(height * 0.075);
+  const leftRight = Math.round(width * 0.24);
+  const documentRight = Math.round(width * 0.76);
+  const documentRegion = {
+    x0: leftRight,
+    y0: titlebarBottom,
+    x1: documentRight,
+    y1: height,
+  };
+  const documentInterior = insetRegion(documentRegion, {
+    x: Math.round(width * 0.025),
+    y: Math.round(height * 0.035),
+  });
   const regions = {
-    titlebar: sample(image, 0, 0, width, Math.round(height * 0.075)),
-    left: sample(image, 0, Math.round(height * 0.075), Math.round(width * 0.24), height),
+    titlebar: sample(image, 0, 0, width, titlebarBottom),
+    left: sample(image, 0, titlebarBottom, leftRight, height),
     document: sample(
       image,
-      Math.round(width * 0.24),
-      Math.round(height * 0.075),
-      Math.round(width * 0.76),
-      height,
+      documentRegion.x0,
+      documentRegion.y0,
+      documentRegion.x1,
+      documentRegion.y1,
     ),
-    right: sample(image, Math.round(width * 0.76), Math.round(height * 0.075), width, height),
+    documentInterior: sample(
+      image,
+      documentInterior.x0,
+      documentInterior.y0,
+      documentInterior.x1,
+      documentInterior.y1,
+    ),
+    right: sample(image, documentRight, titlebarBottom, width, height),
   };
   const verticalEdges = countVerticalEdges(image);
   return {
@@ -56,6 +78,15 @@ function describeImage(image) {
     verticalEdges,
     hasThreePanels: verticalEdges >= 2,
     darkTextRatio: darkTextRatio(image),
+  };
+}
+
+function insetRegion(region, inset) {
+  return {
+    x0: Math.min(region.x1 - 1, region.x0 + inset.x),
+    y0: Math.min(region.y1 - 1, region.y0 + inset.y),
+    x1: Math.max(region.x0 + 1, region.x1 - inset.x),
+    y1: Math.max(region.y0 + 1, region.y1 - inset.y),
   };
 }
 

@@ -38,8 +38,8 @@ Every completed slice must satisfy these gates:
 
 Current high-priority exact-parity gaps from the latest captures:
 
-- Remove native-capture compositing artifacts or isolate document-rendering
-  comparisons so black outline artifacts do not mask real drift.
+- Re-run native/Tauri captures after each remaining feature slice and record any
+  new visual drift before moving on.
 
 Recently completed exact-parity slices:
 
@@ -84,6 +84,12 @@ Recently completed exact-parity slices:
   bookmark rendering no longer draws a hollow stroke over the filled state.
   Covered by the Playwright parity test `toolbar uses the exact Swift mdv action
   symbols`.
+- The visual comparator now reports raw document-region luminance but gates
+  document drift on an inset `documentInterior` region, isolating known
+  native-capture compositing outlines from real Markdown-pane differences.
+  `npm run compare:visual` still captures both real apps and validates titlebar,
+  left pane, document interior, right pane, three-panel structure, and text
+  density.
 
 ## Current Tauri Baseline
 
