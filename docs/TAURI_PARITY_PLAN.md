@@ -650,18 +650,18 @@ Tests:
 
 Goal: support the edit/read loop.
 
-- Add editor picker using Tauri dialog or Rust native command.
-- Persist editor app path.
-- Open current file in editor.
-- Add forget editor.
+- Done: Add editor picker using Tauri dialog or Rust native command.
+- Done: Persist editor app path.
+- Done: Open current file in editor.
+- Done: Add forget editor.
 - Done: Add file signature watcher path using Tauri/Rust metadata polling.
 - Done: Debounce reloads.
 - Done: Preserve current scroll on watcher reload.
 
 Tests:
 
-- Rust tests for watcher debounce logic where possible.
-- Playwright tests using mocked API for editor state.
+- Done: Rust tests for watcher debounce logic where possible.
+- Done: Playwright tests using mocked API for editor state.
 - Done: Rust tests for file signature metadata.
 - Done: Playwright test that modifies the mocked current document and verifies
   reload with scroll preservation.
@@ -670,20 +670,20 @@ Tests:
 
 Goal: make the Tauri app replace the Swift app operationally.
 
-- File associations for `.md`, `.markdown`, `.mdown`, `.mkd`, optionally `.txt`.
-- App-opened file event handling.
+- Done: File associations for `.md`, `.markdown`, `.mdown`, `.mkd`, optionally `.txt`.
+- Done: App-opened file event handling.
 - New window support.
-- Help document command.
-- CLI installer equivalent or a Tauri-native CLI strategy.
-- App icon and bundle metadata.
-- Release signing/notarization pipeline.
+- Done: Help document command.
+- Done: CLI installer equivalent or a Tauri-native CLI strategy.
+- Done: App icon and bundle metadata.
+- Release DMG/signing/notarization pipeline.
 
 Tests:
 
-- Tauri build check.
-- Scripted bundle metadata checks.
-- CLI smoke test.
-- App open event smoke test if automatable.
+- Done: Tauri `.app` build check.
+- Done: Scripted bundle metadata checks.
+- Done: CLI smoke test.
+- Done: App open event smoke test if automatable.
 
 ## Working Method
 

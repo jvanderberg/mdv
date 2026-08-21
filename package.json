@@ -19,7 +19,7 @@
     "compare:visual": "npm run capture:native && npm run capture:tauri && node scripts/compare-captures.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build --bundles app"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.8.0",
