@@ -1,6 +1,6 @@
 [package]
 name = "mdvx"
-version = "0.1.0"
+version = "0.1.1"
 description = "A desktop Markdown viewer"
 authors = ["Josh Vanderberg"]
 edition = "2021"

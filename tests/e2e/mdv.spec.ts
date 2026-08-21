@@ -52,8 +52,15 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("opens a markdown file, renders document chrome, and builds a TOC", async ({ page }) => {
+test("shows a diagnostic instead of a blank window when startup fails", async ({ page }) => {
+  await page.route("**/src/bootstrap.tsx*", (route) => route.abort());
   await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "mdv could not start" })).toBeVisible();
+});
+
+test("opens a markdown file, renders document chrome, and builds a TOC", async ({ page }) => {
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -67,7 +74,7 @@ test("opens a markdown file, renders document chrome, and builds a TOC", async (
 });
 
 test("filters the table of contents inside the inspector", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -86,7 +93,7 @@ test("filters the table of contents inside the inspector", async ({ page }) => {
 });
 
 test("table of contents pane scrolls independently for long documents", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -110,7 +117,7 @@ test("table of contents pane scrolls independently for long documents", async ({
 });
 
 test("table of contents clicks participate in back and forward navigation", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -141,7 +148,7 @@ test("table of contents clicks participate in back and forward navigation", asyn
 
 test("clicking a heading copies that source markdown section", async ({ page }) => {
   await mockClipboard(page);
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -162,7 +169,7 @@ test("clicking a heading copies that source markdown section", async ({ page }) 
 
 test("viewer copy supports rich clipboard and explicit markdown copy", async ({ page }) => {
   await mockClipboard(page);
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -205,7 +212,7 @@ test("right-clicking a markdown selection preserves the selected text", async ({
 }) => {
   test.skip(isMobile, "Desktop context-menu selection semantics do not apply to mobile.");
   await mockClipboard(page);
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -248,7 +255,7 @@ test("right-clicking a markdown selection preserves the selected text", async ({
 });
 
 test("search pods and bookmarks collapse with animated mdv panels", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -276,7 +283,7 @@ test("search pods and bookmarks collapse with animated mdv panels", async ({ pag
 });
 
 test("inspector typography and spacing remain compact", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -318,7 +325,7 @@ test("inspector typography and spacing remain compact", async ({ page }) => {
 });
 
 test("tracks the active heading in the table of contents", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -340,7 +347,7 @@ test("tracks the active heading in the table of contents", async ({ page }) => {
 test("opens a folder selection by preferring README and seeding sibling history", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path), [abs("test-docs")]);
 
   await expect(page.getByText("README.md").first()).toBeVisible();
@@ -350,7 +357,7 @@ test("opens a folder selection by preferring README and seeding sibling history"
 });
 
 test("opens dropped markdown files and folders", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_DROP_PATHS__?.([path]),
     [abs("test-docs/syntax.md")],
@@ -372,7 +379,7 @@ test("opens pending and runtime native open requests", async ({ page }) => {
     },
     [abs("test-docs/prose.md")],
   );
-  await page.goto("/");
+  await openApp(page);
   await expect(page.getByText("prose.md").first()).toBeVisible();
   await expect(page.getByTestId("markdown-body").locator("h1")).toContainText(
     "On Reading Long-Form on a Glowing Rectangle",
@@ -387,7 +394,7 @@ test("opens pending and runtime native open requests", async ({ page }) => {
 });
 
 test("local links navigate inline while external links fall through", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/links.md")],
@@ -435,7 +442,7 @@ test("local links navigate inline while external links fall through", async ({ p
 });
 
 test("back and forward restore document snapshots by visible block", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/links.md")],
@@ -474,7 +481,7 @@ test("back and forward restore document snapshots by visible block", async ({ pa
 test("sidebar search hits and bookmark jumps participate in navigation history", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([first, second, third]) => {
       await window.__MDV_OPEN_DOCUMENT__?.(first);
@@ -510,7 +517,7 @@ test("sidebar search hits and bookmark jumps participate in navigation history",
 test("cross-document fragments open the target document and scroll to the heading", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/links.md")],
@@ -543,7 +550,7 @@ test("cross-document fragments open the target document and scroll to the headin
 });
 
 test("renders local and data images while blocking remote and missing images", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/images.md")],
@@ -561,7 +568,7 @@ test("renders local and data images while blocking remote and missing images", a
 });
 
 test("renders markdown lists with visible native-style markers", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/syntax.md")],
@@ -599,7 +606,7 @@ test("renders markdown lists with visible native-style markers", async ({ page }
 });
 
 test("renders table corpus with readable mdv table styling", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/tables.md")],
@@ -633,7 +640,7 @@ test("renders table corpus with readable mdv table styling", async ({ page }) =>
 });
 
 test("renders thematic breaks with smart typography enabled", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/thematic-break.md")],
@@ -652,7 +659,7 @@ test("renders thematic breaks with smart typography enabled", async ({ page }) =
 });
 
 test("history search, document find, and bookmarks are automatic workflows", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([first, second]) => {
       await window.__MDV_OPEN_DOCUMENT__?.(first);
@@ -689,7 +696,7 @@ test("history search, document find, and bookmarks are automatic workflows", asy
 });
 
 test("history search field stays compact and legible in dark themes", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([first, second]) => {
       await window.__MDV_OPEN_DOCUMENT__?.(first);
@@ -729,7 +736,7 @@ test("history search field stays compact and legible in dark themes", async ({ p
 test("document find highlights blocks and scrolls current match by rendered block", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/prose.md")],
@@ -765,7 +772,7 @@ test("document find highlights blocks and scrolls current match by rendered bloc
 });
 
 test("find shortcuts route by focused pane and close with Escape", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -791,7 +798,7 @@ test("find shortcuts route by focused pane and close with Escape", async ({ page
 });
 
 test("sidebar and bookmark rows preserve visual density", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([first, second]) => {
       await window.__MDV_OPEN_DOCUMENT__?.(first);
@@ -822,7 +829,7 @@ test("sidebar and bookmark rows preserve visual density", async ({ page }) => {
 });
 
 test("history header stays fixed while only history rows scroll", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   const path = abs("test-docs/README.md");
   await page.evaluate(
     ([documentPath]) => {
@@ -866,7 +873,7 @@ test("history header stays fixed while only history rows scroll", async ({ page 
 });
 
 test("left sidebar resizes and collapses through its divider affordance", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -920,7 +927,7 @@ test("left sidebar resizes and collapses through its divider affordance", async 
 });
 
 test("right inspector collapse uses the animated shell transition", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -974,7 +981,7 @@ test("right inspector collapse uses the animated shell transition", async ({ pag
 });
 
 test("bookmarks track current selection and can be reordered", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -1032,7 +1039,7 @@ test("bookmarks track current selection and can be reordered", async ({ page }) 
 });
 
 test("placeholder appears as a pinned bookmark row and can jump and clear", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -1068,7 +1075,7 @@ test("placeholder appears as a pinned bookmark row and can jump and clear", asyn
 });
 
 test("bookmarks pane resizes and persists its height", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -1097,7 +1104,7 @@ test("bookmarks pane resizes and persists its height", async ({ page }) => {
 });
 
 test("bookmarks pane scrolls when saved bookmarks overflow", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   const path = abs("test-docs/README.md");
   await page.evaluate(
     ([documentPath]) => {
@@ -1141,7 +1148,7 @@ test("bookmarks pane scrolls when saved bookmarks overflow", async ({ page }) =>
 });
 
 test("shared bookmark changes refresh visible panes across windows", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -1194,7 +1201,7 @@ test("bookmarks and scroll persistence use the top visible rendered block", asyn
     "exact top-block geometry is covered by desktop split-view projects",
   );
 
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -1242,7 +1249,7 @@ test("bookmarks and scroll persistence use the top visible rendered block", asyn
 });
 
 test("history and bookmark deletion workflows update persisted lists", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([first, second]) => {
       await window.__MDV_OPEN_DOCUMENT__?.(first);
@@ -1302,7 +1309,7 @@ test("history and bookmark deletion workflows update persisted lists", async ({ 
 });
 
 test("missing bookmark rows are dimmed, inert, and removable", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     ([path]) => {
       window.__MDV_BOOKMARKS__?.push({
@@ -1340,7 +1347,7 @@ test("missing bookmark rows are dimmed, inert, and removable", async ({ page }) 
 });
 
 test("history, search hits, and bookmarks can show their file in its folder", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([first, second]) => {
       await window.__MDV_OPEN_DOCUMENT__?.(first);
@@ -1386,7 +1393,7 @@ test("history, search hits, and bookmarks can show their file in its folder", as
 });
 
 test("themes and zoom alter durable viewer state without layout collapse", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/prose.md")],
@@ -1424,7 +1431,7 @@ test("theme menu exposes the full mdv catalog", async ({ page }) => {
     ["standard-erin-dark", "Standard Erin Dark"],
   ] as const;
 
-  await page.goto("/");
+  await openApp(page);
   for (const [id, label] of expectedThemes) {
     await page.getByRole("button", { name: "Theme" }).click();
     await expect(page.getByRole("menuitemradio", { name: label })).toBeVisible();
@@ -1434,7 +1441,7 @@ test("theme menu exposes the full mdv catalog", async ({ page }) => {
 });
 
 test("theme palette opens below the toolbar and accepts selection", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
 
   await page.getByRole("button", { name: "Theme" }).click();
   const toolbarBox = await page.getByTestId("app-toolbar").boundingBox();
@@ -1476,7 +1483,7 @@ test("every mdv theme renders visible document content", async ({ page }) => {
     ["standard-erin-dark", "Standard Erin Dark"],
   ] as const;
 
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/prose.md")],
@@ -1494,7 +1501,7 @@ test("every mdv theme renders visible document content", async ({ page }) => {
 });
 
 test("charcoal theme keeps document and chrome text readable", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/prose.md")],
@@ -1562,7 +1569,7 @@ test("charcoal theme keeps document and chrome text readable", async ({ page }) 
 });
 
 test("theme typography follows smart punctuation and weight rules", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/prose.md")],
@@ -1585,7 +1592,7 @@ test("theme typography follows smart punctuation and weight rules", async ({ pag
 });
 
 test("code syntax palettes follow the active mdv theme", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/code.md")],
@@ -1607,7 +1614,7 @@ test("code syntax palettes follow the active mdv theme", async ({ page }) => {
 });
 
 test("native menu commands drive mdv workflows", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -1649,7 +1656,7 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
 });
 
 test("native menu state exposes dynamic labels checks and enables", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await expect
     .poll(async () => page.evaluate(() => window.__MDV_NATIVE_MENU_STATES__?.at(-1)))
     .toMatchObject({
@@ -1700,7 +1707,7 @@ test("native menu state exposes dynamic labels checks and enables", async ({ pag
 test("open in new window keeps the current document and delegates to native window creation", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -1718,7 +1725,7 @@ test("open in new window keeps the current document and delegates to native wind
 test("external file changes reload the current document without losing scroll", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openApp(page);
   const path = abs("test-docs/toc-stress.md");
   await page.evaluate(
     async ([documentPath]) => window.__MDV_OPEN_DOCUMENT__?.(documentPath),
@@ -1753,7 +1760,7 @@ test("external file changes reload the current document without losing scroll", 
 });
 
 test("editing the current file keeps it open and reloads editor saves", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   const path = abs("test-docs/README.md");
   await page.evaluate(
     async ([documentPath]) => window.__MDV_OPEN_DOCUMENT__?.(documentPath),
@@ -1803,7 +1810,7 @@ test("view menu toggles remote images and smart typography", async ({ page }) =>
       contentType: "image/png",
     });
   });
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/images.md")],
@@ -1834,7 +1841,7 @@ test("enabled remote image failures render an explicit placeholder", async ({ pa
   await page.route("https://github.githubassets.com/**", async (route) => {
     await route.abort();
   });
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/images.md")],
@@ -1849,7 +1856,7 @@ test("enabled remote image failures render an explicit placeholder", async ({ pa
 
 test("code blocks expose mdv chrome, copy, and per-block wrap", async ({ page }) => {
   await mockClipboard(page);
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/code.md")],
@@ -1875,7 +1882,7 @@ test("code blocks expose mdv chrome, copy, and per-block wrap", async ({ page })
 });
 
 test("long code lines scroll until wrap is enabled", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/code-long-line.md")],
@@ -1898,7 +1905,7 @@ test("long code lines scroll until wrap is enabled", async ({ page }) => {
 
 test("shell code context menu can copy without prompts", async ({ page }) => {
   await mockClipboard(page);
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/code-prompts.md")],
@@ -1916,7 +1923,7 @@ test("shell code context menu can copy without prompts", async ({ page }) => {
 });
 
 test("restores the saved scroll position when reopening a document", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/toc-stress.md")],
@@ -1949,7 +1956,7 @@ test("restores the saved scroll position when reopening a document", async ({ pa
 });
 
 test("visual shell stays readable without clipped chrome", async ({ page }, testInfo) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -2003,7 +2010,7 @@ test("visual shell stays readable without clipped chrome", async ({ page }, test
 });
 
 test("toolbar uses the expected mdv action symbols", async ({ page }) => {
-  await page.goto("/");
+  await openApp(page);
   await page.evaluate(
     async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
     [abs("test-docs/README.md")],
@@ -2036,7 +2043,7 @@ for (const fixture of manifest.documents) {
       "large TOC stress fixture is covered on desktop",
     );
 
-    await page.goto("/");
+    await openApp(page);
     await page.evaluate(
       async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
       [abs(fixture.path)],
@@ -2340,6 +2347,12 @@ async function ensureInspector(page: Page) {
   ) {
     await page.getByRole("button", { name: "Table of contents" }).click();
   }
+}
+
+async function openApp(page: Page) {
+  await page.goto("/");
+  await expect(page.getByTestId("app-shell")).toBeVisible();
+  await page.waitForFunction(() => typeof window.__MDV_OPEN_DOCUMENT__ === "function");
 }
 
 async function ensureBookmarksExpanded(page: Page) {
