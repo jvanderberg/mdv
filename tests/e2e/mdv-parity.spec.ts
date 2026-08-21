@@ -199,6 +199,54 @@ test("viewer copy supports rich clipboard and explicit markdown copy", async ({ 
   await expect(page.getByTestId("copy-hud")).toContainText("Markdown copied");
 });
 
+test("right-clicking a markdown selection preserves the selected text", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "Desktop context-menu selection semantics do not apply to mobile.");
+  await mockClipboard(page);
+  await page.goto("/");
+  await page.evaluate(
+    async ([path]) => window.__MDV_OPEN_DOCUMENT__?.(path),
+    [abs("test-docs/README.md")],
+  );
+
+  const selectedBeforeContextMenu = await page.evaluate(() => {
+    const heading = document.querySelector("h2");
+    const paragraph = heading?.nextElementSibling;
+    if (!heading || !paragraph) throw new Error("Expected selection targets for context menu test");
+    const range = document.createRange();
+    range.setStartBefore(heading);
+    range.setEndAfter(paragraph);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    return {
+      rangeCount: selection?.rangeCount ?? 0,
+      text: selection?.toString() ?? "",
+    };
+  });
+  const selectedBox = await page.getByRole("heading", { name: "What’s here" }).boundingBox();
+  expect(selectedBox).not.toBeNull();
+  if (!selectedBox) return;
+  await page.mouse.click(
+    selectedBox.x + selectedBox.width / 2,
+    selectedBox.y + selectedBox.height / 2,
+    {
+      button: "right",
+    },
+  );
+  await expect(page.getByRole("menuitem", { name: "Copy Rich" })).toBeVisible();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => ({
+        rangeCount: window.getSelection()?.rangeCount ?? 0,
+        text: window.getSelection()?.toString() ?? "",
+      })),
+    )
+    .toEqual(selectedBeforeContextMenu);
+});
+
 test("search pods and bookmarks collapse with animated mdv panels", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(

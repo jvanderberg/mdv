@@ -844,6 +844,7 @@ function Viewer() {
   const ignoreScrollUntilRef = useRef(0);
   const saveTimerRef = useRef<number | undefined>(undefined);
   const copyNoticeTimerRef = useRef<number | undefined>(undefined);
+  const contextMenuSelectionRef = useRef<MarkdownSelectionSnapshot | null>(null);
   const document = useAppStore((state) => state.document);
   const findQuery = useAppStore((state) => state.findQuery);
   const findMatches = useAppStore((state) => state.findMatches);
@@ -925,6 +926,21 @@ function Viewer() {
     event.clipboardData.setData("text/plain", payload.markdown);
     showCopyNotice("Rich copy ready");
   };
+  const preserveSelectionOnRightClick = (
+    event: ReactMouseEvent<HTMLElement> | ReactPointerEvent<HTMLElement>,
+  ) => {
+    if (event.button !== 2) return;
+    const snapshot = selectionSnapshot(markdownRef.current);
+    if (
+      snapshot.ranges.length === 0 ||
+      !targetInsideRoot(markdownRef.current, event.target) ||
+      !pointInsideSelection(event.clientX, event.clientY)
+    ) {
+      return;
+    }
+    contextMenuSelectionRef.current = snapshot;
+    event.preventDefault();
+  };
   const handleMarkdownContextMenu = (event: ReactMouseEvent<HTMLElement>) => {
     const target = event.target as HTMLElement | null;
     const codeBlock = target?.closest<HTMLElement>(".mdv-code-block");
@@ -934,13 +950,20 @@ function Viewer() {
       setCodeMenu({ blockId: codeBlock.dataset.codeBlockId, x: event.clientX, y: event.clientY });
       return;
     }
+    const preservedSelection = contextMenuSelectionRef.current;
     const payload =
+      copyPayloadForRanges(markdownRef.current, blocks, preservedSelection?.ranges ?? []) ??
       copyPayloadForSelection(markdownRef.current, blocks) ??
       copyPayloadForBlock(target?.closest<HTMLElement>("[data-mdv-block-index]"), blocks);
     if (!payload) return;
+    const snapshot = preservedSelection?.ranges.length
+      ? preservedSelection
+      : selectionSnapshot(markdownRef.current);
     event.preventDefault();
     setCodeMenu(null);
     setCopyMenu({ ...payload, x: event.clientX, y: event.clientY });
+    contextMenuSelectionRef.current = null;
+    restoreSelectionSnapshot(markdownRef.current, snapshot);
   };
   const flashCopiedSection = (startIndex: number, endIndex: number) => {
     const root = markdownRef.current;
@@ -1197,6 +1220,8 @@ function Viewer() {
         data-current-fragment={currentFragment ?? undefined}
         data-testid="markdown-body"
         onCopy={handleRichCopy}
+        onMouseDownCapture={preserveSelectionOnRightClick}
+        onPointerDown={preserveSelectionOnRightClick}
         onClick={(event) => {
           if (handleCodeAction(event.target)) {
             event.preventDefault();
@@ -1369,6 +1394,11 @@ interface CopyPayload {
   y?: number;
 }
 
+interface MarkdownSelectionSnapshot {
+  blockIndexes: number[];
+  ranges: Range[];
+}
+
 function MarkdownCopyMenu({
   menu,
   onClose,
@@ -1439,6 +1469,86 @@ function copyPayloadForSelection(root: HTMLElement | null, blocks: string[]): Co
   return { html, markdown, text };
 }
 
+function copyPayloadForRanges(
+  root: HTMLElement | null,
+  blocks: string[],
+  ranges: Range[],
+): CopyPayload | null {
+  if (!root || ranges.length === 0) return null;
+  const html = ranges.map((range) => htmlForRange(range)).join("");
+  const text = ranges.map((range) => range.toString()).join("");
+  const markdown = markdownForRanges(root, ranges, blocks) || text;
+  if (!text.trim() && !markdown.trim()) return null;
+  return { html, markdown, text };
+}
+
+function targetInsideRoot(root: HTMLElement | null, target: EventTarget | null): boolean {
+  if (!root || !(target instanceof Node)) return false;
+  return nodeInside(root, target);
+}
+
+function pointInsideSelection(clientX: number, clientY: number): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  for (let rangeIndex = 0; rangeIndex < selection.rangeCount; rangeIndex += 1) {
+    const range = selection.getRangeAt(rangeIndex);
+    for (const rect of Array.from(range.getClientRects())) {
+      if (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function selectionSnapshot(root: HTMLElement | null): MarkdownSelectionSnapshot {
+  if (!root) return { blockIndexes: [], ranges: [] };
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    return { blockIndexes: [], ranges: [] };
+  }
+  const ranges: Range[] = [];
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    const range = selection.getRangeAt(index);
+    if (nodeInside(root, range.commonAncestorContainer)) ranges.push(range.cloneRange());
+  }
+  const blockIndexes = Array.from(root.querySelectorAll<HTMLElement>("[data-mdv-block-index]"))
+    .filter((block) => ranges.some((range) => range.intersectsNode(block)))
+    .map((block) => Number(block.dataset.mdvBlockIndex))
+    .filter((index) => Number.isFinite(index));
+  return { blockIndexes, ranges };
+}
+
+function restoreSelectionSnapshot(root: HTMLElement | null, snapshot: MarkdownSelectionSnapshot) {
+  if (snapshot.ranges.length === 0) return;
+  const restore = () => {
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    for (const range of snapshot.ranges) selection.addRange(range);
+    if (selection.toString() || !root || snapshot.blockIndexes.length === 0) return;
+    const sorted = [...snapshot.blockIndexes].sort((a, b) => a - b);
+    const first = root.querySelector<HTMLElement>(`[data-mdv-block-index="${sorted[0]}"]`);
+    const last = root.querySelector<HTMLElement>(
+      `[data-mdv-block-index="${sorted[sorted.length - 1]}"]`,
+    );
+    if (!first || !last) return;
+    const range = document.createRange();
+    range.setStartBefore(first);
+    range.setEndAfter(last);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+  window.requestAnimationFrame(restore);
+  window.setTimeout(restore, 0);
+  window.setTimeout(restore, 50);
+}
+
 function copyPayloadForBlock(
   block: HTMLElement | null | undefined,
   blocks: string[],
@@ -1454,8 +1564,12 @@ function copyPayloadForBlock(
 }
 
 function markdownForRange(root: HTMLElement, range: Range, blocks: string[]): string {
+  return markdownForRanges(root, [range], blocks);
+}
+
+function markdownForRanges(root: HTMLElement, ranges: Range[], blocks: string[]): string {
   const selected = Array.from(root.querySelectorAll<HTMLElement>("[data-mdv-block-index]"))
-    .filter((block) => range.intersectsNode(block))
+    .filter((block) => ranges.some((range) => range.intersectsNode(block)))
     .map((block) => Number(block.dataset.mdvBlockIndex))
     .filter((index) => Number.isFinite(index));
   if (selected.length === 0) return "";

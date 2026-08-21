@@ -48,7 +48,9 @@ Recently completed exact-parity slices:
   paste targets preserve formatting while plain targets receive source markdown.
   Right-clicking rendered markdown exposes `Copy Rich` and `Copy Markdown`, and
   heading-click markdown section copy now shows a transient `Markdown copied`
-  HUD in addition to the section flash. Code block copy remains plain text.
+  HUD in addition to the section flash. Right-clicking inside an existing
+  markdown selection preserves the selected range while opening the copy menu.
+  Code block copy remains plain text.
 - The left History pane now keeps its title/search header fixed while only the
   history row list scrolls. The panel itself owns the sidebar height and hides
   overflow; `history-list` owns row scrolling. Covered by the Playwright
