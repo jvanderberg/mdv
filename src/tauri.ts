@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { openPath as openSystemPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type {
   Bookmark,
+  FileSignature,
   HistoryEntry,
   LoadedDocument,
   ResolvedLocalImage,
@@ -27,6 +28,7 @@ export interface MdvApi {
   openExternalTarget(target: string): Promise<void>;
   revealPath(path: string): Promise<void>;
   loadMarkdown(path: string): Promise<LoadedDocument>;
+  fileSignature(path: string): Promise<FileSignature>;
   resolveLocalImage(documentPath: string, src: string): Promise<ResolvedLocalImage>;
   localImageUrl(path: string): string;
   loadScrollPosition(path: string): Promise<ScrollPosition | null>;
@@ -112,6 +114,9 @@ export const api: MdvApi = {
   },
   loadMarkdown(path) {
     return tauriInvoke("load_markdown", { path });
+  },
+  fileSignature(path) {
+    return tauriInvoke("file_signature", { path });
   },
   resolveLocalImage(documentPath, src) {
     return tauriInvoke("resolve_local_image", { documentPath, src });

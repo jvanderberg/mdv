@@ -70,6 +70,8 @@ describe("store persistence helpers", () => {
             path: "/doc.md",
             filename: "doc.md",
             content: "# Title\n\nInserted paragraph.\n\nAnchor paragraph.\n\nTail.",
+            file_mtime_ms: 1,
+            file_size: 58,
           };
         },
         async loadScrollPosition() {

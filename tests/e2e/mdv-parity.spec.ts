@@ -785,6 +785,43 @@ test("native menu commands drive mdv workflows", async ({ page }) => {
     .toBe(1);
 });
 
+test("external file changes reload the current document without losing scroll", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const path = abs("test-docs/toc-stress.md");
+  await page.evaluate(
+    async ([documentPath]) => window.__MDV_OPEN_DOCUMENT__?.(documentPath),
+    [path],
+  );
+
+  const viewer = page.getByTestId("viewer-scroll");
+  await viewer.evaluate((element) => {
+    element.scrollTo(0, 640);
+  });
+  await page.waitForTimeout(120);
+  const before = await viewer.evaluate((element) => element.scrollTop);
+  expect(before).toBeGreaterThan(300);
+
+  await page.evaluate(
+    ([documentPath]) => {
+      window.__MDV_REWRITE_DOCUMENT__?.(
+        documentPath,
+        "# Reloaded Fixture\n\nLive reload landed.\n\n" +
+          Array.from({ length: 80 }, (_, index) => `Paragraph ${index} keeps the page tall.`).join(
+            "\n\n",
+          ),
+      );
+    },
+    [path],
+  );
+
+  await expect(page.getByTestId("markdown-body")).toContainText("Live reload landed");
+  await expect
+    .poll(async () => viewer.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(before - 40);
+});
+
 test("view menu toggles remote images and smart typography", async ({ page }) => {
   await page.route("https://github.githubassets.com/**", async (route) => {
     await route.fulfill({
@@ -1071,6 +1108,10 @@ async function installMockApi(page: Page) {
         block_fingerprint: string;
         file_exists: boolean;
       }> = [];
+      const signatures: Record<string, { file_mtime_ms: number; file_size: number }> = {};
+      for (const [path, doc] of Object.entries(docs)) {
+        signatures[path] = { file_mtime_ms: Date.now(), file_size: doc.content.length };
+      }
       const snippetFor = (content: string, query: string) => {
         const normalized = content.toLowerCase();
         const needle = query.trim().toLowerCase();
@@ -1168,7 +1209,12 @@ async function installMockApi(page: Page) {
           const existing = history.findIndex((entry) => entry.path === path);
           if (existing >= 0) history.splice(existing, 1);
           history.unshift({ path, filename: doc.filename, added_at: Date.now() });
-          return doc;
+          return { ...doc, ...signatures[path] };
+        },
+        async fileSignature(path: string) {
+          const signature = signatures[path];
+          if (!signature) throw new Error(`missing fixture ${path}`);
+          return { path, ...signature };
         },
         async resolveLocalImage(documentPath: string, src: string) {
           const path = src.startsWith("/")
@@ -1258,6 +1304,15 @@ async function installMockApi(page: Page) {
       };
       window.__MDV_MENU_COMMAND__ = async (command: string) => {
         if (menuHandler) await menuHandler(command);
+      };
+      window.__MDV_REWRITE_DOCUMENT__ = (path: string, content: string) => {
+        const doc = docs[path];
+        if (!doc) throw new Error(`missing fixture ${path}`);
+        doc.content = content;
+        signatures[path] = {
+          file_mtime_ms: (signatures[path]?.file_mtime_ms ?? Date.now()) + 1,
+          file_size: content.length,
+        };
       };
       window.__MDV_EXTERNAL_CALLS__ = externalCalls;
       window.__MDV_REVEAL_CALLS__ = revealCalls;

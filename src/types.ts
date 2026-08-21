@@ -19,6 +19,14 @@ export interface LoadedDocument {
   path: string;
   filename: string;
   content: string;
+  file_mtime_ms: number;
+  file_size: number;
+}
+
+export interface FileSignature {
+  path: string;
+  file_mtime_ms: number;
+  file_size: number;
 }
 
 export interface ScrollPosition {
@@ -55,6 +63,7 @@ declare global {
     __MDV_DROP_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_OPEN_PATHS__?: (paths: string[]) => Promise<void>;
     __MDV_PENDING_OPEN_PATHS__?: string[];
+    __MDV_REWRITE_DOCUMENT__?: (path: string, content: string) => void;
     __MDV_EDITOR_CALLS__?: Array<{ editorPath: string; documentPath: string }>;
     __MDV_EXTERNAL_CALLS__?: string[];
     __MDV_MENU_COMMAND__?: (command: string) => Promise<void>;

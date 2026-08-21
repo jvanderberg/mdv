@@ -654,15 +654,17 @@ Goal: support the edit/read loop.
 - Persist editor app path.
 - Open current file in editor.
 - Add forget editor.
-- Add file watcher via Rust `notify`.
-- Debounce reloads.
-- Preserve current scroll on watcher reload.
+- Done: Add file signature watcher path using Tauri/Rust metadata polling.
+- Done: Debounce reloads.
+- Done: Preserve current scroll on watcher reload.
 
 Tests:
 
 - Rust tests for watcher debounce logic where possible.
 - Playwright tests using mocked API for editor state.
-- Integration test that modifies a temp markdown file and verifies reload.
+- Done: Rust tests for file signature metadata.
+- Done: Playwright test that modifies the mocked current document and verifies
+  reload with scroll preservation.
 
 ### Phase 9 — Native App Integration And Packaging
 

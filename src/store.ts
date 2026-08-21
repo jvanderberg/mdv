@@ -60,6 +60,7 @@ export interface AppState {
   editCurrentFile: () => Promise<void>;
   forgetEditor: () => void;
   openDocument: (path: string) => Promise<void>;
+  reloadCurrentDocumentFromDisk: () => Promise<void>;
   openFirstPath: (paths: string[]) => Promise<void>;
   navigateToHref: (href: string) => Promise<void>;
   navigateBack: () => Promise<void>;
@@ -207,6 +208,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       globalHits: [],
       activeBookmarkId: null,
       activeBlockIndex: scrollPosition?.block_index ?? 0,
+    });
+    await get().refreshLists();
+  },
+
+  async reloadCurrentDocumentFromDisk() {
+    const current = get().document;
+    if (!current) return;
+    const loaded = await get().api.loadMarkdown(current.path);
+    const rendered = renderMarkdown(loaded.content, {
+      loadRemoteImages: get().loadRemoteImages,
+      typographer: get().smartTypography && smartTypographyAllowed(get().theme),
+    });
+    const findMatches = findBlockMatches(rendered.blocks, get().findQuery);
+    set({
+      document: loaded,
+      html: rendered.html,
+      blocks: rendered.blocks,
+      toc: rendered.toc,
+      activeTocHeadingId: rendered.toc[0]?.id ?? null,
+      findMatches,
+      currentFindMatchIndex: Math.min(
+        get().currentFindMatchIndex,
+        Math.max(0, findMatches.length - 1),
+      ),
+      pendingScrollTop: get().viewerScrollTop,
     });
     await get().refreshLists();
   },

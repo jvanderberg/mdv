@@ -85,6 +85,15 @@ pub struct LoadedDocument {
     pub path: String,
     pub filename: String,
     pub content: String,
+    pub file_mtime_ms: i64,
+    pub file_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FileSignature {
+    pub path: String,
+    pub file_mtime_ms: i64,
+    pub file_size: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -455,11 +464,19 @@ fn load_markdown(path: String, state: State<'_, AppState>) -> MdvResult<LoadedDo
         }
     }
     store.add_history(&document_set.primary, &content)?;
+    let signature = file_signature_for_path(&document_set.primary)?;
     Ok(LoadedDocument {
         path: document_set.primary.to_string_lossy().into_owned(),
         filename: filename(&document_set.primary),
         content,
+        file_mtime_ms: signature.file_mtime_ms,
+        file_size: signature.file_size,
     })
+}
+
+#[tauri::command]
+fn file_signature(path: String) -> MdvResult<FileSignature> {
+    file_signature_for_path(Path::new(&path))
 }
 
 #[tauri::command]
@@ -1150,6 +1167,21 @@ fn file_mtime_secs(path: &Path) -> i64 {
         .unwrap_or(0)
 }
 
+fn file_signature_for_path(path: &Path) -> MdvResult<FileSignature> {
+    let metadata = fs::metadata(path)?;
+    let file_mtime_ms = metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as i64)
+        .unwrap_or(0);
+    Ok(FileSignature {
+        path: path.to_string_lossy().into_owned(),
+        file_mtime_ms,
+        file_size: metadata.len() as i64,
+    })
+}
+
 pub fn run() {
     tauri::Builder::default()
         .menu(mdv_menu)
@@ -1181,6 +1213,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             load_markdown,
+            file_signature,
             resolve_local_image,
             list_history,
             remove_history,
@@ -1260,6 +1293,19 @@ mod tests {
             r#""needle"* "alpha"* "beta"*"#,
         );
         assert_eq!(make_fts_query(r#" " () : * ^ "#), "");
+    }
+
+    #[test]
+    fn file_signature_tracks_size_and_mtime() {
+        let temp = tempfile::tempdir().unwrap();
+        let doc = temp.path().join("watched.md");
+        fs::write(&doc, "# One\n").unwrap();
+
+        let signature = file_signature_for_path(&doc).unwrap();
+
+        assert_eq!(signature.path, doc.to_string_lossy());
+        assert_eq!(signature.file_size, 6);
+        assert!(signature.file_mtime_ms > 0);
     }
 
     #[test]

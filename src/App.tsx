@@ -56,6 +56,7 @@ export function App() {
   const navigateForward = useAppStore((state) => state.navigateForward);
   const openFirstPath = useAppStore((state) => state.openFirstPath);
   const refreshLists = useAppStore((state) => state.refreshLists);
+  const reloadCurrentDocumentFromDisk = useAppStore((state) => state.reloadCurrentDocumentFromDisk);
   const resetZoom = useAppStore((state) => state.resetZoom);
   const setTheme = useAppStore((state) => state.setTheme);
   const setPlaceholder = useAppStore((state) => state.setPlaceholder);
@@ -111,6 +112,46 @@ export function App() {
   useEffect(() => {
     void refreshLists();
   }, [refreshLists]);
+
+  useEffect(() => {
+    if (!currentDocument) return;
+    let cancelled = false;
+    let signature = {
+      file_mtime_ms: currentDocument.file_mtime_ms,
+      file_size: currentDocument.file_size,
+    };
+    let reloadTimer: number | undefined;
+    const check = async () => {
+      const next = await api.fileSignature(currentDocument.path).catch(() => null);
+      if (cancelled || !next) return;
+      if (
+        next.file_mtime_ms === signature.file_mtime_ms &&
+        next.file_size === signature.file_size
+      ) {
+        return;
+      }
+      signature = { file_mtime_ms: next.file_mtime_ms, file_size: next.file_size };
+      if (reloadTimer !== undefined) window.clearTimeout(reloadTimer);
+      reloadTimer = window.setTimeout(() => {
+        if (!cancelled) void reloadCurrentDocumentFromDisk();
+      }, 250);
+    };
+    const interval = window.setInterval(() => {
+      void check();
+    }, 700);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      if (reloadTimer !== undefined) window.clearTimeout(reloadTimer);
+    };
+  }, [
+    api,
+    currentDocument,
+    currentDocument?.file_mtime_ms,
+    currentDocument?.file_size,
+    currentDocument?.path,
+    reloadCurrentDocumentFromDisk,
+  ]);
 
   useEffect(() => {
     if (!currentDocument || !html) return;
